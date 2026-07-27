@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export type ReviewChoice = "approve" | "modify" | "reject";
+export type BuildChoice = "build" | "stop";
 
 export function parseReviewChoice(input: string): ReviewChoice | undefined {
   const choice = input.trim().toLowerCase();
@@ -14,6 +15,24 @@ export function parseReviewChoice(input: string): ReviewChoice | undefined {
   }
   if (choice === "r" || choice === "reject") {
     return "reject";
+  }
+
+  return undefined;
+}
+
+export function parseBuildChoice(input: string): BuildChoice | undefined {
+  const choice = input.trim().toLowerCase();
+
+  if (choice === "b" || choice === "build") {
+    return "build";
+  }
+  if (
+    choice === "s" ||
+    choice === "stop" ||
+    choice === "not now" ||
+    choice === "later"
+  ) {
+    return "stop";
   }
 
   return undefined;

@@ -1,8 +1,10 @@
 import { createInterface } from "node:readline/promises";
 
 import {
+  parseBuildChoice,
   parseReviewChoice,
   preserveApprovedSpecification,
+  type BuildChoice,
   type ReviewChoice,
 } from "./approval.js";
 import { formatPlan } from "./format.js";
@@ -94,6 +96,28 @@ try {
           );
           console.log(`\nSpecification approved and saved to ${path}`);
           console.log("No product code was changed.");
+
+          let buildChoice: BuildChoice | undefined;
+          while (!buildChoice) {
+            buildChoice = parseBuildChoice(
+              await terminal.question(
+                "\nChoose [B]uild now or [S]top after the specification:\n> ",
+              ),
+            );
+            if (!buildChoice) {
+              console.log("Please enter build or stop.");
+            }
+          }
+
+          if (buildChoice === "build") {
+            console.log(
+              "\nImplementation approved. The building stage is not available yet, so no product code was changed.",
+            );
+          } else {
+            console.log(
+              "\nStopped after the approved specification. Implementation was not authorized.",
+            );
+          }
           break;
         }
 
