@@ -51,31 +51,28 @@ describe("createProductPlan", () => {
     );
   });
 
-  it("asks feature-specific product questions", () => {
+  it("uses AI-generated product reasoning when provided", () => {
     const plan = createProductPlan(
-      "Add a confidence level to every product plan",
+      "Let users save a product plan to a file",
+      repositoryOverview,
       {
-        ...repositoryOverview,
-        relevantFiles: [
-          ...repositoryOverview.relevantFiles,
-          {
-            path: "src/format.ts",
-            reason: "Formats the product plan.",
-          },
-        ],
+        summary: "Allow users to preserve a generated plan.",
+        clarifyingQuestions: ["Which file format should be supported first?"],
+        dependencies: ["Use the existing formatter output."],
+        acceptanceCriteria: ["A user can save the generated plan."],
+        implementationSteps: ["Add an explicit output option."],
+        risks: ["An existing file could be overwritten."],
+        testPlan: ["Verify the saved content matches the displayed plan."],
       },
     );
 
-    expect(plan.clarifyingQuestions).toEqual(
-      expect.arrayContaining([
-        "What confidence values or scale should be supported, and what does each value mean?",
-        "Should confidence be chosen by the user, calculated automatically, or both?",
-        "How should the new behavior appear in the output produced by src/format.ts?",
-      ]),
-    );
-    expect(plan.clarifyingQuestions).not.toContain(
-      "Who is the primary user for this feature?",
-    );
+    expect(plan.summary).toBe("Allow users to preserve a generated plan.");
+    expect(plan.clarifyingQuestions).toEqual([
+      "Which file format should be supported first?",
+    ]);
+    expect(plan.acceptanceCriteria).toEqual([
+      "A user can save the generated plan.",
+    ]);
   });
 });
 

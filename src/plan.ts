@@ -25,46 +25,26 @@ export type ProductPlan = {
   testPlan: string[];
 };
 
+export type ProductReasoning = Pick<
+  ProductPlan,
+  | "summary"
+  | "clarifyingQuestions"
+  | "dependencies"
+  | "acceptanceCriteria"
+  | "implementationSteps"
+  | "risks"
+  | "testPlan"
+>;
+
 function toTitle(featureRequest: string): string {
   const trimmed = featureRequest.trim().replace(/[.!?]+$/, "");
   return trimmed.length <= 72 ? trimmed : `${trimmed.slice(0, 69)}...`;
 }
 
-function createClarifyingQuestions(
-  request: string,
-  repositoryOverview: RepositoryOverview,
-): string[] {
-  const questions = [
-    `What should the user see or be able to do when "${request}" is complete?`,
-  ];
-
-  if (request.toLowerCase().includes("confidence")) {
-    questions.push(
-      "What confidence values or scale should be supported, and what does each value mean?",
-      "Should confidence be chosen by the user, calculated automatically, or both?",
-    );
-  } else {
-    questions.push(
-      "What rules, defaults, or user choices should control this behavior?",
-    );
-  }
-
-  const formatFile = repositoryOverview.relevantFiles.find(
-    (file) => file.path.includes("format") || file.path.includes("view"),
-  );
-
-  if (formatFile) {
-    questions.push(
-      `How should the new behavior appear in the output produced by ${formatFile.path}?`,
-    );
-  }
-
-  return questions;
-}
-
 export function createProductPlan(
   featureRequest: string,
   repositoryOverview: RepositoryOverview,
+  reasoning?: ProductReasoning,
 ): ProductPlan {
   const request = featureRequest.trim();
 
@@ -83,14 +63,12 @@ export function createProductPlan(
     .filter((file) => file.path.includes(".test.") || file.path.includes(".spec."))
     .map((file) => file.path);
 
-  return {
-    title: toTitle(request),
+  const fallbackReasoning: ProductReasoning = {
     summary: `Enable the requested outcome: ${request}`,
-    repositoryOverview,
-    clarifyingQuestions: createClarifyingQuestions(
-      request,
-      repositoryOverview,
-    ),
+    clarifyingQuestions: [
+      `What should the user see or be able to do when "${request}" is complete?`,
+      "What rules, defaults, or user choices should control this behavior?",
+    ],
     dependencies: [
       "Confirm which existing interfaces, services, and data this feature relies on.",
       "Identify any external packages, APIs, or permissions required.",
@@ -120,5 +98,12 @@ export function createProductPlan(
       "Run the existing automated test suite.",
       "Manually confirm each acceptance criterion.",
     ],
+  };
+  const productReasoning = reasoning ?? fallbackReasoning;
+
+  return {
+    title: toTitle(request),
+    repositoryOverview,
+    ...productReasoning,
   };
 }

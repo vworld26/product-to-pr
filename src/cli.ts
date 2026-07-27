@@ -1,6 +1,7 @@
 import { formatPlan } from "./format.js";
 import { inspectRepository } from "./inspect.js";
 import { createProductPlan } from "./plan.js";
+import { reasonAboutFeature } from "./reason.js";
 
 const [repositoryPath, ...featureParts] = process.argv.slice(2);
 const featureRequest = featureParts.join(" ");
@@ -18,7 +19,16 @@ try {
     repositoryPath,
     featureRequest,
   );
-  const plan = createProductPlan(featureRequest, repositoryOverview);
+  const reasoning = await reasonAboutFeature(
+    repositoryPath,
+    featureRequest,
+    repositoryOverview,
+  );
+  const plan = createProductPlan(
+    featureRequest,
+    repositoryOverview,
+    reasoning,
+  );
   console.log(formatPlan(plan));
 } catch (error) {
   const message = error instanceof Error ? error.message : "Unexpected error.";
