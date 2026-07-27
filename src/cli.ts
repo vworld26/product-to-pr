@@ -7,6 +7,7 @@ import {
   type BuildChoice,
   type ReviewChoice,
 } from "./approval.js";
+import { createImplementationBranch } from "./branch.js";
 import { formatPlan } from "./format.js";
 import { inspectRepository } from "./inspect.js";
 import { createProductPlan } from "./plan.js";
@@ -110,8 +111,13 @@ try {
           }
 
           if (buildChoice === "build") {
+            const branchName = await createImplementationBranch(
+              repositoryPath,
+              plan.title,
+            );
+            console.log(`\nSafe implementation branch created: ${branchName}`);
             console.log(
-              "\nImplementation approved. The building stage is not available yet, so no product code was changed.",
+              "No product code has been changed. Building the approved specification is the next stage.",
             );
           } else {
             console.log(
