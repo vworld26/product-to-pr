@@ -1,8 +1,14 @@
+import { createInterface } from "node:readline/promises";
+
+import {
+  parseReviewChoice,
+  preserveApprovedSpecification,
+  type ReviewChoice,
+} from "./approval.js";
 import { formatPlan } from "./format.js";
 import { inspectRepository } from "./inspect.js";
 import { createProductPlan } from "./plan.js";
 import { reasonAboutFeature } from "./reason.js";
-import { createInterface } from "node:readline/promises";
 
 const [repositoryPath, ...featureParts] = process.argv.slice(2);
 const featureRequest = featureParts.join(" ");
@@ -25,44 +31,101 @@ try {
     featureRequest,
     repositoryOverview,
   );
-  if (
-    process.stdin.isTTY &&
-    process.stdout.isTTY &&
-    reasoning.clarifyingQuestions.length > 0
-  ) {
+  const interactive = process.stdin.isTTY && process.stdout.isTTY;
+
+  if (interactive) {
     const terminal = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
     const answers: string[] = [];
 
-    console.log("\nA few product decisions before I finalize the plan:\n");
     try {
-      for (const question of reasoning.clarifyingQuestions) {
-        const answer = await terminal.question(`${question}\n> `);
-        answers.push(
-          `${question} — ${
-            answer.trim() || "Use the safest reasonable default."
-          }`,
+      if (reasoning.clarifyingQuestions.length > 0) {
+        console.log("\nA few product decisions before I finalize the plan:\n");
+        for (const question of reasoning.clarifyingQuestions) {
+          const answer = await terminal.question(`${question}\n> `);
+          answers.push(
+            `${question} — ${
+              answer.trim() || "Use the safest reasonable default."
+            }`,
+          );
+        }
+
+        reasoning = await reasonAboutFeature(
+          repositoryPath,
+          featureRequest,
+          repositoryOverview,
+          answers,
+        );
+      }
+
+      while (true) {
+        const plan = createProductPlan(
+          featureRequest,
+          repositoryOverview,
+          reasoning,
+        );
+        const specification = formatPlan(plan);
+        console.log(`\n${specification}`);
+
+        let choice: ReviewChoice | undefined;
+        while (!choice) {
+          choice = parseReviewChoice(
+            await terminal.question(
+              "\nChoose [A]pprove, [M]odify, or [R]eject:\n> ",
+            ),
+          );
+          if (!choice) {
+            console.log("Please enter approve, modify, or reject.");
+          }
+        }
+
+        if (choice === "reject") {
+          console.log("\nSpecification rejected. Nothing was saved or built.");
+          break;
+        }
+
+        if (choice === "approve") {
+          const path = await preserveApprovedSpecification(
+            repositoryPath,
+            plan.title,
+            specification,
+          );
+          console.log(`\nSpecification approved and saved to ${path}`);
+          console.log("No product code was changed.");
+          break;
+        }
+
+        const requestedChange = (
+          await terminal.question(
+            "\nDescribe what you want changed in plain English:\n> ",
+          )
+        ).trim();
+        if (!requestedChange) {
+          console.log("\nNo change entered. Returning to review.");
+          continue;
+        }
+
+        answers.push(`Requested modification — ${requestedChange}`);
+        reasoning = await reasonAboutFeature(
+          repositoryPath,
+          featureRequest,
+          repositoryOverview,
+          answers,
         );
       }
     } finally {
       terminal.close();
     }
-
-    reasoning = await reasonAboutFeature(
-      repositoryPath,
+  } else {
+    const plan = createProductPlan(
       featureRequest,
       repositoryOverview,
-      answers,
+      reasoning,
     );
+    console.log(formatPlan(plan));
   }
-  const plan = createProductPlan(
-    featureRequest,
-    repositoryOverview,
-    reasoning,
-  );
-  console.log(formatPlan(plan));
 } catch (error) {
   const message = error instanceof Error ? error.message : "Unexpected error.";
   console.error(message);
