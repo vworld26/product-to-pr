@@ -1,6 +1,6 @@
 # Product-to-PR
 
-Product-to-PR helps a product contributor turn a plain-language feature request into a structured, reviewable implementation plan.
+Product-to-PR helps a product contributor turn a plain-language feature request and an existing codebase into a structured, reviewable implementation plan.
 
 Version 1 is intentionally small. It does not change code, call external services, or create pull requests. It teaches the path from a product idea to a technical plan.
 
@@ -17,7 +17,7 @@ Version 1 is intentionally small. It does not change code, call external service
 
 ```bash
 npm install
-npm run dev -- "Add a way to export a project plan as Markdown"
+npm run dev -- . "Add a way to export a project plan as Markdown"
 ```
 
 ## Verify it

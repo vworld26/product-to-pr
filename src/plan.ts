@@ -1,6 +1,15 @@
+export type RepositoryOverview = {
+  purpose: string;
+  technologies: string[];
+  structure: string[];
+  entryPoints: string[];
+  testApproach: string[];
+};
+
 export type ProductPlan = {
   title: string;
   summary: string;
+  repositoryOverview: RepositoryOverview;
   clarifyingQuestions: string[];
   dependencies: string[];
   acceptanceCriteria: string[];
@@ -14,7 +23,10 @@ function toTitle(featureRequest: string): string {
   return trimmed.length <= 72 ? trimmed : `${trimmed.slice(0, 69)}...`;
 }
 
-export function createProductPlan(featureRequest: string): ProductPlan {
+export function createProductPlan(
+  featureRequest: string,
+  repositoryOverview: RepositoryOverview,
+): ProductPlan {
   const request = featureRequest.trim();
 
   if (!request) {
@@ -24,6 +36,7 @@ export function createProductPlan(featureRequest: string): ProductPlan {
   return {
     title: toTitle(request),
     summary: `Enable the requested outcome: ${request}`,
+    repositoryOverview,
     clarifyingQuestions: [
       "Who is the primary user for this feature?",
       "What user problem or measurable outcome should this address?",
