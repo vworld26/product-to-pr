@@ -10,6 +10,17 @@ const repositoryOverview = {
   structure: ["src contains the planning and formatting logic."],
   entryPoints: ["src/cli.ts receives feature requests."],
   testApproach: ["Vitest verifies plan creation and Markdown formatting."],
+  relevantFiles: [
+    {
+      path: "src/plan.ts",
+      reason: "Defines the product plan.",
+    },
+    {
+      path: "src/plan.test.ts",
+      reason: "Tests product plan behavior.",
+    },
+  ],
+  inspectionNotes: ["Searched readable source files."],
 };
 
 describe("createProductPlan", () => {
@@ -23,6 +34,13 @@ describe("createProductPlan", () => {
     expect(plan.repositoryOverview).toEqual(repositoryOverview);
     expect(plan.dependencies.length).toBeGreaterThan(0);
     expect(plan.acceptanceCriteria.length).toBeGreaterThan(0);
+    expect(plan.acceptanceCriteria).toContain(
+      "The completed product supports this outcome: Export a project plan as Markdown.",
+    );
+    expect(plan.implementationSteps).toContain(
+      "Update src/plan.ts: Defines the product plan.",
+    );
+    expect(plan.testPlan).toContain("Update and run src/plan.test.ts.");
     expect(plan.implementationSteps.length).toBeGreaterThan(0);
     expect(plan.testPlan.length).toBeGreaterThan(0);
   });
@@ -30,6 +48,33 @@ describe("createProductPlan", () => {
   it("rejects an empty feature request", () => {
     expect(() => createProductPlan("   ", repositoryOverview)).toThrow(
       "A feature request is required.",
+    );
+  });
+
+  it("asks feature-specific product questions", () => {
+    const plan = createProductPlan(
+      "Add a confidence level to every product plan",
+      {
+        ...repositoryOverview,
+        relevantFiles: [
+          ...repositoryOverview.relevantFiles,
+          {
+            path: "src/format.ts",
+            reason: "Formats the product plan.",
+          },
+        ],
+      },
+    );
+
+    expect(plan.clarifyingQuestions).toEqual(
+      expect.arrayContaining([
+        "What confidence values or scale should be supported, and what does each value mean?",
+        "Should confidence be chosen by the user, calculated automatically, or both?",
+        "How should the new behavior appear in the output produced by src/format.ts?",
+      ]),
+    );
+    expect(plan.clarifyingQuestions).not.toContain(
+      "Who is the primary user for this feature?",
     );
   });
 });
@@ -44,6 +89,9 @@ describe("formatPlan", () => {
     );
 
     expect(output).toContain("## Repository overview");
+    expect(output).toContain("## Relevant files");
+    expect(output).toContain("src/plan.ts — Defines the product plan.");
+    expect(output).toContain("## Inspection notes");
     expect(output).toContain("## Clarifying questions");
     expect(output).toContain("## Dependencies");
     expect(output).toContain("## Acceptance criteria");
@@ -55,7 +103,10 @@ describe("formatPlan", () => {
 
 describe("inspectRepository", () => {
   it("creates an overview from this repository", async () => {
-    const overview = await inspectRepository(process.cwd());
+    const overview = await inspectRepository(
+      process.cwd(),
+      "Add a confidence level to every product plan",
+    );
 
     expect(overview.purpose).toContain("Product-to-PR helps");
     expect(overview.technologies).toContain("typescript");
@@ -65,5 +116,16 @@ describe("inspectRepository", () => {
     expect(overview.testApproach.some((value) => value.startsWith("test:"))).toBe(
       true,
     );
+    expect(overview.relevantFiles.map((file) => file.path)).toEqual(
+      expect.arrayContaining([
+        "src/format.ts",
+        "src/plan.test.ts",
+        "src/plan.ts",
+      ]),
+    );
+    expect(overview.relevantFiles.every((file) => file.reason.length > 0)).toBe(
+      true,
+    );
+    expect(overview.inspectionNotes[0]).toMatch(/^Searched \d+ readable/);
   });
 });

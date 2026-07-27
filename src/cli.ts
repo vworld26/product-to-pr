@@ -14,7 +14,10 @@ try {
     throw new Error("A feature request is required.");
   }
 
-  const repositoryOverview = await inspectRepository(repositoryPath);
+  const repositoryOverview = await inspectRepository(
+    repositoryPath,
+    featureRequest,
+  );
   const plan = createProductPlan(featureRequest, repositoryOverview);
   console.log(formatPlan(plan));
 } catch (error) {

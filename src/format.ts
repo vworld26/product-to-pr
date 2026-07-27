@@ -14,6 +14,11 @@ function formatRepositoryOverview(
     section("Structure", overview.structure),
     section("Entry points", overview.entryPoints),
     section("Test approach", overview.testApproach),
+    section(
+      "Relevant files",
+      overview.relevantFiles.map((file) => `${file.path} — ${file.reason}`),
+    ),
+    section("Inspection notes", overview.inspectionNotes),
   ].join("\n\n");
 }
 

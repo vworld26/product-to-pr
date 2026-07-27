@@ -1,9 +1,16 @@
+export type RelevantFile = {
+  path: string;
+  reason: string;
+};
+
 export type RepositoryOverview = {
   purpose: string;
   technologies: string[];
   structure: string[];
   entryPoints: string[];
   testApproach: string[];
+  relevantFiles: RelevantFile[];
+  inspectionNotes: string[];
 };
 
 export type ProductPlan = {
@@ -23,6 +30,38 @@ function toTitle(featureRequest: string): string {
   return trimmed.length <= 72 ? trimmed : `${trimmed.slice(0, 69)}...`;
 }
 
+function createClarifyingQuestions(
+  request: string,
+  repositoryOverview: RepositoryOverview,
+): string[] {
+  const questions = [
+    `What should the user see or be able to do when "${request}" is complete?`,
+  ];
+
+  if (request.toLowerCase().includes("confidence")) {
+    questions.push(
+      "What confidence values or scale should be supported, and what does each value mean?",
+      "Should confidence be chosen by the user, calculated automatically, or both?",
+    );
+  } else {
+    questions.push(
+      "What rules, defaults, or user choices should control this behavior?",
+    );
+  }
+
+  const formatFile = repositoryOverview.relevantFiles.find(
+    (file) => file.path.includes("format") || file.path.includes("view"),
+  );
+
+  if (formatFile) {
+    questions.push(
+      `How should the new behavior appear in the output produced by ${formatFile.path}?`,
+    );
+  }
+
+  return questions;
+}
+
 export function createProductPlan(
   featureRequest: string,
   repositoryOverview: RepositoryOverview,
@@ -33,28 +72,38 @@ export function createProductPlan(
     throw new Error("A feature request is required.");
   }
 
+  const strongestMatches = repositoryOverview.relevantFiles.slice(0, 3);
+  const implementationSteps = strongestMatches
+    .filter(
+      (file) =>
+        !file.path.includes(".test.") && !file.path.includes(".spec."),
+    )
+    .map((file) => `Update ${file.path}: ${file.reason}`);
+  const testFiles = repositoryOverview.relevantFiles
+    .filter((file) => file.path.includes(".test.") || file.path.includes(".spec."))
+    .map((file) => file.path);
+
   return {
     title: toTitle(request),
     summary: `Enable the requested outcome: ${request}`,
     repositoryOverview,
-    clarifyingQuestions: [
-      "Who is the primary user for this feature?",
-      "What user problem or measurable outcome should this address?",
-      "What behavior is explicitly outside the first version?",
-    ],
+    clarifyingQuestions: createClarifyingQuestions(
+      request,
+      repositoryOverview,
+    ),
     dependencies: [
       "Confirm which existing interfaces, services, and data this feature relies on.",
       "Identify any external packages, APIs, or permissions required.",
       "Verify that prerequisite product decisions are resolved before implementation.",
     ],
     acceptanceCriteria: [
-      "The primary user can complete the intended outcome.",
+      `The completed product supports this outcome: ${request}.`,
       "The feature handles invalid or incomplete input clearly.",
       "Existing behavior continues to work.",
     ],
     implementationSteps: [
       "Confirm the unanswered product and technical questions.",
-      "Identify the affected interface, business logic, and data boundaries.",
+      ...implementationSteps,
       "Implement the smallest complete user journey.",
       "Add automated tests for the new behavior and important failure cases.",
       "Review the final change against every acceptance criterion.",
@@ -67,6 +116,7 @@ export function createProductPlan(
     testPlan: [
       "Test the primary successful user journey.",
       "Test invalid, empty, and boundary inputs.",
+      ...testFiles.map((path) => `Update and run ${path}.`),
       "Run the existing automated test suite.",
       "Manually confirm each acceptance criterion.",
     ],
