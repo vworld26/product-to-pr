@@ -18,6 +18,7 @@ export type ProductPlan = {
   summary: string;
   repositoryOverview: RepositoryOverview;
   clarifyingQuestions: string[];
+  productDecisions: string[];
   dependencies: string[];
   acceptanceCriteria: string[];
   implementationSteps: string[];
@@ -29,6 +30,7 @@ export type ProductReasoning = Pick<
   ProductPlan,
   | "summary"
   | "clarifyingQuestions"
+  | "productDecisions"
   | "dependencies"
   | "acceptanceCriteria"
   | "implementationSteps"
@@ -69,6 +71,7 @@ export function createProductPlan(
       `What should the user see or be able to do when "${request}" is complete?`,
       "What rules, defaults, or user choices should control this behavior?",
     ],
+    productDecisions: [],
     dependencies: [
       "Confirm which existing interfaces, services, and data this feature relies on.",
       "Identify any external packages, APIs, or permissions required.",

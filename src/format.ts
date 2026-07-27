@@ -23,15 +23,22 @@ function formatRepositoryOverview(
 }
 
 export function formatPlan(plan: ProductPlan): string {
-  return [
+  const sections = [
     `# ${plan.title}`,
     `## Summary\n\n${plan.summary}`,
     formatRepositoryOverview(plan.repositoryOverview),
-    section("Clarifying questions", plan.clarifyingQuestions),
+    ...(plan.clarifyingQuestions.length > 0
+      ? [section("Clarifying questions", plan.clarifyingQuestions)]
+      : []),
+    ...(plan.productDecisions.length > 0
+      ? [section("Product decisions", plan.productDecisions)]
+      : []),
     section("Dependencies", plan.dependencies),
     section("Acceptance criteria", plan.acceptanceCriteria),
     section("Implementation steps", plan.implementationSteps),
     section("Risks", plan.risks),
     section("Test plan", plan.testPlan),
-  ].join("\n\n");
+  ];
+
+  return sections.join("\n\n");
 }

@@ -58,6 +58,7 @@ describe("createProductPlan", () => {
       {
         summary: "Allow users to preserve a generated plan.",
         clarifyingQuestions: ["Which file format should be supported first?"],
+        productDecisions: ["Saving is explicitly requested by the user."],
         dependencies: ["Use the existing formatter output."],
         acceptanceCriteria: ["A user can save the generated plan."],
         implementationSteps: ["Add an explicit output option."],
@@ -69,6 +70,9 @@ describe("createProductPlan", () => {
     expect(plan.summary).toBe("Allow users to preserve a generated plan.");
     expect(plan.clarifyingQuestions).toEqual([
       "Which file format should be supported first?",
+    ]);
+    expect(plan.productDecisions).toEqual([
+      "Saving is explicitly requested by the user.",
     ]);
     expect(plan.acceptanceCriteria).toEqual([
       "A user can save the generated plan.",

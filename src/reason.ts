@@ -11,6 +11,7 @@ const reasoningSchema = {
   required: [
     "summary",
     "clarifyingQuestions",
+    "productDecisions",
     "dependencies",
     "acceptanceCriteria",
     "implementationSteps",
@@ -20,6 +21,10 @@ const reasoningSchema = {
   properties: {
     summary: { type: "string" },
     clarifyingQuestions: {
+      type: "array",
+      items: { type: "string" },
+    },
+    productDecisions: {
       type: "array",
       items: { type: "string" },
     },
@@ -49,8 +54,9 @@ const reasoningSchema = {
 export function buildReasoningPrompt(
   featureRequest: string,
   repositoryOverview: RepositoryOverview,
+  answers: string[] = [],
 ): string {
-  return [
+  const prompt = [
     "Act as a product manager and software planner.",
     "Create a concise, repository-aware product specification.",
     "Do not edit files or run commands.",
@@ -61,13 +67,27 @@ export function buildReasoningPrompt(
     "",
     "Repository evidence:",
     JSON.stringify(repositoryOverview, null, 2),
-  ].join("\n");
+  ];
+
+  if (answers.length > 0) {
+    prompt.push(
+      "",
+      "User answers to the earlier clarifying questions:",
+      ...answers.map((answer) => `- ${answer}`),
+      "",
+      "Convert these answers into explicit productDecisions.",
+      "Remove questions that the answers resolved; keep only material unanswered questions.",
+    );
+  }
+
+  return prompt.join("\n");
 }
 
 export async function reasonAboutFeature(
   repositoryPath: string,
   featureRequest: string,
   repositoryOverview: RepositoryOverview,
+  answers: string[] = [],
 ): Promise<ProductReasoning> {
   const temporaryDirectory = await mkdtemp(
     join(tmpdir(), "product-to-pr-reasoning-"),
@@ -128,7 +148,7 @@ export async function reasonAboutFeature(
         }
       });
       child.stdin.end(
-        buildReasoningPrompt(featureRequest, repositoryOverview),
+        buildReasoningPrompt(featureRequest, repositoryOverview, answers),
       );
     });
 
