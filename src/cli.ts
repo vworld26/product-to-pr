@@ -1,11 +1,161 @@
-import { formatPlan } from "./format.js";
-import { createProductPlan } from "./plan.js";
+import { createInterface } from "node:readline/promises";
 
-const featureRequest = process.argv.slice(2).join(" ");
+import {
+  parseBuildChoice,
+  parseReviewChoice,
+  preserveApprovedSpecification,
+  type BuildChoice,
+  type ReviewChoice,
+} from "./approval.js";
+import { createImplementationBranch } from "./branch.js";
+import { formatPlan } from "./format.js";
+import { inspectRepository } from "./inspect.js";
+import { createProductPlan } from "./plan.js";
+import { reasonAboutFeature } from "./reason.js";
+
+const [repositoryPath, ...featureParts] = process.argv.slice(2);
+const featureRequest = featureParts.join(" ");
 
 try {
-  const plan = createProductPlan(featureRequest);
-  console.log(formatPlan(plan));
+  if (!repositoryPath) {
+    throw new Error("A repository folder is required.");
+  }
+
+  if (!featureRequest.trim()) {
+    throw new Error("A feature request is required.");
+  }
+
+  const repositoryOverview = await inspectRepository(
+    repositoryPath,
+    featureRequest,
+  );
+  let reasoning = await reasonAboutFeature(
+    repositoryPath,
+    featureRequest,
+    repositoryOverview,
+  );
+  const interactive = process.stdin.isTTY && process.stdout.isTTY;
+
+  if (interactive) {
+    const terminal = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    const answers: string[] = [];
+
+    try {
+      if (reasoning.clarifyingQuestions.length > 0) {
+        console.log("\nA few product decisions before I finalize the plan:\n");
+        for (const question of reasoning.clarifyingQuestions) {
+          const answer = await terminal.question(`${question}\n> `);
+          answers.push(
+            `${question} — ${
+              answer.trim() || "Use the safest reasonable default."
+            }`,
+          );
+        }
+
+        reasoning = await reasonAboutFeature(
+          repositoryPath,
+          featureRequest,
+          repositoryOverview,
+          answers,
+        );
+      }
+
+      while (true) {
+        const plan = createProductPlan(
+          featureRequest,
+          repositoryOverview,
+          reasoning,
+        );
+        const specification = formatPlan(plan);
+        console.log(`\n${specification}`);
+
+        let choice: ReviewChoice | undefined;
+        while (!choice) {
+          choice = parseReviewChoice(
+            await terminal.question(
+              "\nChoose [A]pprove, [M]odify, or [R]eject:\n> ",
+            ),
+          );
+          if (!choice) {
+            console.log("Please enter approve, modify, or reject.");
+          }
+        }
+
+        if (choice === "reject") {
+          console.log("\nSpecification rejected. Nothing was saved or built.");
+          break;
+        }
+
+        if (choice === "approve") {
+          const path = await preserveApprovedSpecification(
+            repositoryPath,
+            plan.title,
+            specification,
+          );
+          console.log(`\nSpecification approved and saved to ${path}`);
+          console.log("No product code was changed.");
+
+          let buildChoice: BuildChoice | undefined;
+          while (!buildChoice) {
+            buildChoice = parseBuildChoice(
+              await terminal.question(
+                "\nChoose [B]uild now or [S]top after the specification:\n> ",
+              ),
+            );
+            if (!buildChoice) {
+              console.log("Please enter build or stop.");
+            }
+          }
+
+          if (buildChoice === "build") {
+            const branchName = await createImplementationBranch(
+              repositoryPath,
+              plan.title,
+            );
+            console.log(`\nSafe implementation branch created: ${branchName}`);
+            console.log(
+              "No product code has been changed. Building the approved specification is the next stage.",
+            );
+          } else {
+            console.log(
+              "\nStopped after the approved specification. Implementation was not authorized.",
+            );
+          }
+          break;
+        }
+
+        const requestedChange = (
+          await terminal.question(
+            "\nDescribe what you want changed in plain English:\n> ",
+          )
+        ).trim();
+        if (!requestedChange) {
+          console.log("\nNo change entered. Returning to review.");
+          continue;
+        }
+
+        answers.push(`Requested modification — ${requestedChange}`);
+        reasoning = await reasonAboutFeature(
+          repositoryPath,
+          featureRequest,
+          repositoryOverview,
+          answers,
+        );
+      }
+    } finally {
+      terminal.close();
+    }
+  } else {
+    const plan = createProductPlan(
+      featureRequest,
+      repositoryOverview,
+      reasoning,
+    );
+    console.log(formatPlan(plan));
+  }
 } catch (error) {
   const message = error instanceof Error ? error.message : "Unexpected error.";
   console.error(message);
