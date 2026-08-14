@@ -10,13 +10,45 @@ import {
 import { createImplementationBranch } from "./branch.js";
 import { formatPlan } from "./format.js";
 import { inspectRepository } from "./inspect.js";
+import {
+  MissingOutputDirectoryError,
+  parseCliArguments,
+  writeOutputFile,
+} from "./output.js";
 import { createProductPlan } from "./plan.js";
 import { reasonAboutFeature } from "./reason.js";
 
-const [repositoryPath, ...featureParts] = process.argv.slice(2);
-const featureRequest = featureParts.join(" ");
+async function saveRequestedOutput(
+  path: string,
+  specification: string,
+  askToCreateDirectory?: (directoryPath: string) => Promise<boolean>,
+): Promise<void> {
+  try {
+    await writeOutputFile(path, specification);
+  } catch (error) {
+    if (!(error instanceof MissingOutputDirectoryError)) {
+      throw error;
+    }
+
+    if (!askToCreateDirectory) {
+      throw new Error(
+        `${error.message}. Run interactively to approve creating it, or choose an existing folder.`,
+      );
+    }
+
+    if (!await askToCreateDirectory(error.directoryPath)) {
+      throw new Error("Output cancelled. No folder or file was created.");
+    }
+
+    await writeOutputFile(path, specification, true);
+  }
+}
 
 try {
+  const { repositoryPath, featureRequest, outputPath } = parseCliArguments(
+    process.argv.slice(2),
+  );
+
   if (!repositoryPath) {
     throw new Error("A repository folder is required.");
   }
@@ -90,6 +122,21 @@ try {
         }
 
         if (choice === "approve") {
+          if (outputPath) {
+            await saveRequestedOutput(
+              outputPath,
+              specification,
+              async (directoryPath) => {
+                const answer = await terminal.question(
+                  `\nThe output folder does not exist: ${directoryPath}\nCreate it? [Y/N]\n> `,
+                );
+                return answer.trim().toLowerCase() === "y" ||
+                  answer.trim().toLowerCase() === "yes";
+              },
+            );
+            console.log(`\nPlan saved to ${outputPath}`);
+          }
+
           const path = await preserveApprovedSpecification(
             repositoryPath,
             plan.title,
@@ -154,7 +201,12 @@ try {
       repositoryOverview,
       reasoning,
     );
-    console.log(formatPlan(plan));
+    const specification = formatPlan(plan);
+    console.log(specification);
+    if (outputPath) {
+      await saveRequestedOutput(outputPath, specification);
+      console.log(`\nPlan saved to ${outputPath}`);
+    }
   }
 } catch (error) {
   const message = error instanceof Error ? error.message : "Unexpected error.";
