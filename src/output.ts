@@ -88,8 +88,27 @@ export async function writeOutputFile(
   try {
     await writeContent(file, content);
   } catch (error) {
-    await file.close();
-    await unlink(outputPath).catch(() => undefined);
+    const cleanupErrors: unknown[] = [];
+
+    try {
+      await file.close();
+    } catch (closeError) {
+      cleanupErrors.push(closeError);
+    }
+
+    try {
+      await unlink(outputPath);
+    } catch (unlinkError) {
+      cleanupErrors.push(unlinkError);
+    }
+
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...cleanupErrors],
+        `Writing the output failed and cleanup could not be completed: ${outputPath}`,
+      );
+    }
+
     throw error;
   }
 
