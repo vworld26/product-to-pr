@@ -1,3 +1,5 @@
+import type { InstructionContext } from "./instructions.js";
+
 export type RelevantFile = {
   path: string;
   reason: string;
@@ -9,6 +11,7 @@ export type RepositoryOverview = {
   structure: string[];
   entryPoints: string[];
   testApproach: string[];
+  instructionContext: InstructionContext;
   relevantFiles: RelevantFile[];
   inspectionNotes: string[];
 };

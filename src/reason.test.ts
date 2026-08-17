@@ -12,6 +12,12 @@ describe("buildReasoningPrompt", () => {
         structure: ["src/"],
         entryPoints: ["src/cli.ts"],
         testApproach: ["Vitest"],
+        instructionContext: {
+          instructions: [],
+          fallbackFiles: ["README.md", "package.json"],
+          warnings: ["No AGENTS.md instructions were found."],
+          authoringState: "missing",
+        },
         relevantFiles: [
           {
             path: "src/format.ts",
@@ -36,6 +42,12 @@ describe("buildReasoningPrompt", () => {
         structure: ["src/"],
         entryPoints: ["src/cli.ts"],
         testApproach: ["Vitest"],
+        instructionContext: {
+          instructions: [],
+          fallbackFiles: ["README.md", "package.json"],
+          warnings: ["No AGENTS.md instructions were found."],
+          authoringState: "missing",
+        },
         relevantFiles: [],
         inspectionNotes: ["Searched readable source files."],
       },

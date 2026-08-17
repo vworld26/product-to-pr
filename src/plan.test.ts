@@ -10,6 +10,12 @@ const repositoryOverview = {
   structure: ["src contains the planning and formatting logic."],
   entryPoints: ["src/cli.ts receives feature requests."],
   testApproach: ["Vitest verifies plan creation and Markdown formatting."],
+  instructionContext: {
+    instructions: [],
+    fallbackFiles: ["README.md", "package.json"],
+    warnings: ["No AGENTS.md instructions were found."],
+    authoringState: "missing" as const,
+  },
   relevantFiles: [
     {
       path: "src/plan.ts",
@@ -90,6 +96,10 @@ describe("formatPlan", () => {
     );
 
     expect(output).toContain("## Repository overview");
+    expect(output).toContain("## Repository instructions");
+    expect(output).toContain("No `AGENTS.md` instructions were found.");
+    expect(output).toContain("## Instruction fallback files");
+    expect(output).toContain("README.md");
     expect(output).toContain("## Relevant files");
     expect(output).toContain("src/plan.ts — Defines the product plan.");
     expect(output).toContain("## Inspection notes");
@@ -99,6 +109,35 @@ describe("formatPlan", () => {
     expect(output).toContain("## Implementation steps");
     expect(output).toContain("## Risks");
     expect(output).toContain("## Test plan");
+  });
+
+  it("renders discovered instructions with their scope and content", () => {
+    const output = formatPlan(
+      createProductPlan(
+        "Inspect repository instructions",
+        {
+          ...repositoryOverview,
+          instructionContext: {
+            instructions: [
+              {
+                path: "AGENTS.md",
+                scope: ".",
+                applicableFiles: ["src/plan.ts"],
+                content: "# Repository rules\n\nUse Conventional Commits.\n",
+              },
+            ],
+            fallbackFiles: [],
+            warnings: [],
+            authoringState: "found",
+          },
+        },
+      ),
+    );
+
+    expect(output).toContain("### AGENTS.md");
+    expect(output).toContain("Scope: .");
+    expect(output).toContain("Applicable relevant files: src/plan.ts");
+    expect(output).toContain("Use Conventional Commits.");
   });
 });
 
@@ -117,6 +156,10 @@ describe("inspectRepository", () => {
     expect(overview.testApproach.some((value) => value.startsWith("test:"))).toBe(
       true,
     );
+    expect(overview.instructionContext.authoringState).toBe("found");
+    expect(
+      overview.instructionContext.instructions.map((instruction) => instruction.path),
+    ).toContain("AGENTS.md");
     expect(overview.relevantFiles.map((file) => file.path)).toEqual(
       expect.arrayContaining([
         "src/format.ts",

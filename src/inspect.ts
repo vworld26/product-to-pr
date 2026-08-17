@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 
+import { discoverRepositoryInstructions } from "./instructions.js";
 import type { RepositoryOverview } from "./plan.js";
 
 type PackageJson = {
@@ -201,6 +202,10 @@ export async function inspectRepository(
     entryPoints: findEntryPoints(scripts),
     testApproach:
       testScripts.length > 0 ? testScripts : ["No test script identified."],
+    instructionContext: await discoverRepositoryInstructions(
+      repositoryPath,
+      relevantFileSearch.files.map((file) => file.path),
+    ),
     relevantFiles: relevantFileSearch.files,
     inspectionNotes: [
       `Searched ${relevantFileSearch.searched} readable code and documentation files.`,
