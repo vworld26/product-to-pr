@@ -1,4 +1,8 @@
-# Product brief
+# Product brief: Version 1
+
+This document records the initial Product-to-PR scope. For the current product
+direction and planned outcomes, see [Product vision](product-vision.md) and
+[Roadmap](roadmap.md).
 
 ## Problem
 
@@ -19,7 +23,7 @@ Given a feature request, produce a consistent planning document containing:
 - material risks;
 - a verification plan.
 
-## Non-goals
+## Version 1 non-goals
 
 - Inspecting a repository
 - Generating or modifying code
@@ -34,10 +38,13 @@ Given a feature request, produce a consistent planning document containing:
 - Every plan includes observable acceptance criteria and verification.
 - The core planning behavior is covered by automated tests.
 
-## Future stages
+## Original future stages
 
 1. Inspect a repository and identify relevant files.
 2. Generate a repository-aware implementation plan.
 3. Implement changes on an isolated branch and run tests.
 4. Add evaluation rubrics, logs, retries, and approval gates.
 5. Add an independent second-model review.
+
+Several of these foundations now exist. The current status and remaining work
+are tracked in the [roadmap](roadmap.md).
