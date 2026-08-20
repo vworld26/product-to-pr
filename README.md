@@ -35,4 +35,12 @@ npm test
 4. Open a pull request explaining what changed and why.
 5. Add repository inspection in version 2.
 
-See [docs/product-brief.md](docs/product-brief.md) for the product definition and [docs/learning-guide.md](docs/learning-guide.md) for the concepts behind the code.
+## Product direction
+
+- [Product vision](docs/product-vision.md) describes who Product-to-PR serves,
+  the outcome it aims to create, and the principles that guide decisions.
+- [Roadmap](docs/roadmap.md) shows the outcome-based path from the current
+  planning workflow toward safe, reviewable implementation.
+- [Product brief](docs/product-brief.md) records the original Version 1 scope.
+- [Learning guide](docs/learning-guide.md) explains the concepts behind the
+  code.
