@@ -8,6 +8,7 @@ import {
   type ReviewChoice,
 } from "./approval.js";
 import { createImplementationBranch } from "./branch.js";
+import { implementApprovedPlan } from "./execute.js";
 import { formatPlan } from "./format.js";
 import { preserveImplementationPackage } from "./implementation.js";
 import { inspectRepository } from "./inspect.js";
@@ -172,7 +173,16 @@ try {
             console.log(
               `Implementation checklist saved to ${implementationPath}`,
             );
-            console.log("No product code has been changed.");
+            console.log("\nImplementing the approved change locally...");
+            const implementationSummary = await implementApprovedPlan(
+              repositoryPath,
+              path,
+              implementationPath,
+            );
+            console.log(`\n${implementationSummary}`);
+            console.log(
+              "\nLocal changes are ready. No tests were run and nothing was committed or published.",
+            );
           } else {
             console.log(
               "\nStopped after the approved specification. Implementation was not authorized.",

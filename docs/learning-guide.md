@@ -6,6 +6,7 @@
 - `src/plan.ts` contains the product logic. It turns an input into a plan.
 - `src/format.ts` converts the plan object into readable Markdown.
 - `src/implementation.ts` ties an approved plan to a branch, commit, and checklist.
+- `src/execute.ts` safely asks Codex to make the approved local changes.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -38,6 +39,14 @@ An implementation package records the approved specification, starting Git
 commit, relevant files, repository instructions, and work to verify. It gives a
 beginner a visible checklist and gives reviewers evidence that later changes
 started from the approved scope.
+
+### Controlled local implementation
+
+After the user separately chooses to build, Product-to-PR checks that the
+branch, commit, specification, and working tree still match the approved
+package. Only then does it ask Codex to edit the necessary files. It stops
+before tests, commits, pushes, or pull requests so each later action remains a
+separate decision.
 
 ## First exercise
 
