@@ -90,12 +90,22 @@ function explainMatch(path: string, matchedTerms: string[]): string {
   return `Contains code related to: ${matchedTerms.join(", ")}.`;
 }
 
-async function findRelevantFiles(
+export async function discoverRelevantFiles(
   repositoryPath: string,
   featureRequest: string,
 ): Promise<{ files: RepositoryOverview["relevantFiles"]; searched: number }> {
   const terms = requestTerms(featureRequest);
-  const paths = await listSearchableFiles(repositoryPath);
+  let paths: string[];
+
+  try {
+    paths = await listSearchableFiles(repositoryPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Repository path does not exist: ${repositoryPath}.`);
+    }
+    throw error;
+  }
+
   const matches = await Promise.all(
     paths.map(async (path) => {
       const content = await readFile(join(repositoryPath, path), "utf8");
@@ -187,7 +197,7 @@ export async function inspectRepository(
   const testScripts = Object.entries(scripts)
     .filter(([name]) => name.includes("test"))
     .map(([name, command]) => `${name}: ${command}`);
-  const relevantFileSearch = await findRelevantFiles(
+  const relevantFileSearch = await discoverRelevantFiles(
     repositoryPath,
     featureRequest,
   );

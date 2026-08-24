@@ -139,6 +139,18 @@ describe("formatPlan", () => {
     expect(output).toContain("Applicable relevant files: src/plan.ts");
     expect(output).toContain("Use Conventional Commits.");
   });
+
+  it("renders a clear relevant-files state when no likely files are found", () => {
+    const output = formatPlan(
+      createProductPlan("Inspect an empty repository", {
+        ...repositoryOverview,
+        relevantFiles: [],
+      }),
+    );
+
+    expect(output).toContain("## Relevant files");
+    expect(output).toContain("- No likely relevant files identified.");
+  });
 });
 
 describe("inspectRepository", () => {
