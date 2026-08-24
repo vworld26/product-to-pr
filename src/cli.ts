@@ -3,9 +3,11 @@ import { createInterface } from "node:readline/promises";
 import {
   parseBuildChoice,
   parseReviewChoice,
+  parseVerificationChoice,
   preserveApprovedSpecification,
   type BuildChoice,
   type ReviewChoice,
+  type VerificationChoice,
 } from "./approval.js";
 import { createImplementationBranch } from "./branch.js";
 import { implementApprovedPlan } from "./execute.js";
@@ -19,6 +21,8 @@ import {
 } from "./output.js";
 import { createProductPlan } from "./plan.js";
 import { reasonAboutFeature } from "./reason.js";
+import { createLocalReview, formatLocalReview } from "./review.js";
+import { discoverVerificationCommands, runVerificationCommands } from "./verify.js";
 
 async function saveRequestedOutput(
   path: string,
@@ -183,6 +187,40 @@ try {
             console.log(
               "\nLocal changes are ready. No tests were run and nothing was committed or published.",
             );
+
+            const verificationCommands = await discoverVerificationCommands(
+              repositoryPath,
+            );
+            console.log("\nAvailable verification commands:");
+            verificationCommands.forEach((command) =>
+              console.log(`- ${command.command}`)
+            );
+            let verificationChoice: VerificationChoice | undefined;
+            while (!verificationChoice) {
+              verificationChoice = parseVerificationChoice(
+                await terminal.question("\nChoose [V]erify or [S]top here:\n> "),
+              );
+              if (!verificationChoice) {
+                console.log("Please enter verify or stop.");
+              }
+            }
+            if (verificationChoice === "verify") {
+              const verification = await runVerificationCommands(
+                repositoryPath,
+                verificationCommands,
+              );
+              const review = await createLocalReview(
+                repositoryPath,
+                plan,
+                verification,
+              );
+              console.log(`\n${formatLocalReview(review)}`);
+              console.log("\nNothing was committed or published.");
+            } else {
+              console.log(
+                "\nStopped with local changes ready. No verification, commit, or publication was performed.",
+              );
+            }
           } else {
             console.log(
               "\nStopped after the approved specification. Implementation was not authorized.",

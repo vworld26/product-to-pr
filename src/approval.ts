@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 export type ReviewChoice = "approve" | "modify" | "reject";
 export type BuildChoice = "build" | "stop";
+export type VerificationChoice = "verify" | "stop";
 
 export function parseReviewChoice(input: string): ReviewChoice | undefined {
   const choice = input.trim().toLowerCase();
@@ -35,6 +36,20 @@ export function parseBuildChoice(input: string): BuildChoice | undefined {
     return "stop";
   }
 
+  return undefined;
+}
+
+export function parseVerificationChoice(
+  input: string,
+): VerificationChoice | undefined {
+  const choice = input.trim().toLowerCase();
+
+  if (choice === "v" || choice === "verify") {
+    return "verify";
+  }
+  if (choice === "s" || choice === "stop" || choice === "later") {
+    return "stop";
+  }
   return undefined;
 }
 

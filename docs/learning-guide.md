@@ -7,6 +7,8 @@
 - `src/format.ts` converts the plan object into readable Markdown.
 - `src/implementation.ts` ties an approved plan to a branch, commit, and checklist.
 - `src/execute.ts` safely asks Codex to make the approved local changes.
+- `src/verify.ts` previews and runs known repository checks after approval.
+- `src/review.ts` explains the diff, test evidence, and acceptance status.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -47,6 +49,13 @@ branch, commit, specification, and working tree still match the approved
 package. Only then does it ask Codex to edit the necessary files. It stops
 before tests, commits, pushes, or pull requests so each later action remains a
 separate decision.
+
+### Verification and review
+
+Product-to-PR shows the exact repository commands it can run and waits for a
+separate verification choice. It records every pass or failure, compares the
+local diff with the acceptance criteria, and explains what needs human review
+before offering any commit or publication action.
 
 ## First exercise
 

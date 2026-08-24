@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseBuildChoice,
   parseReviewChoice,
+  parseVerificationChoice,
   preserveApprovedSpecification,
 } from "./approval.js";
 
@@ -25,6 +26,15 @@ describe("parseBuildChoice", () => {
     expect(parseBuildChoice("not now")).toBe("stop");
     expect(parseBuildChoice("later")).toBe("stop");
     expect(parseBuildChoice("approve")).toBeUndefined();
+  });
+});
+
+describe("parseVerificationChoice", () => {
+  it("keeps verification approval separate from implementation approval", () => {
+    expect(parseVerificationChoice("verify")).toBe("verify");
+    expect(parseVerificationChoice("V")).toBe("verify");
+    expect(parseVerificationChoice("later")).toBe("stop");
+    expect(parseVerificationChoice("build")).toBeUndefined();
   });
 });
 
