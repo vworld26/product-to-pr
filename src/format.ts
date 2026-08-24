@@ -36,6 +36,17 @@ function formatRepositoryInstructions(
   ].join("\n\n");
 }
 
+function formatRelevantFiles(
+  files: ProductPlan["repositoryOverview"]["relevantFiles"],
+): string {
+  return section(
+    "Relevant files",
+    files.length > 0
+      ? files.map((file) => `${file.path} — ${file.reason}`)
+      : ["No likely relevant files identified."],
+  );
+}
+
 function formatRepositoryOverview(
   overview: ProductPlan["repositoryOverview"],
 ): string {
@@ -47,10 +58,7 @@ function formatRepositoryOverview(
     section("Entry points", overview.entryPoints),
     section("Test approach", overview.testApproach),
     formatRepositoryInstructions(overview.instructionContext),
-    section(
-      "Relevant files",
-      overview.relevantFiles.map((file) => `${file.path} — ${file.reason}`),
-    ),
+    formatRelevantFiles(overview.relevantFiles),
     section("Inspection notes", overview.inspectionNotes),
   ].join("\n\n");
 }
