@@ -9,6 +9,7 @@ import {
 } from "./approval.js";
 import { createImplementationBranch } from "./branch.js";
 import { formatPlan } from "./format.js";
+import { preserveImplementationPackage } from "./implementation.js";
 import { inspectRepository } from "./inspect.js";
 import {
   MissingOutputDirectoryError,
@@ -162,10 +163,16 @@ try {
               repositoryPath,
               plan.title,
             );
+            const implementationPath = await preserveImplementationPackage(
+              repositoryPath,
+              path,
+              plan,
+            );
             console.log(`\nSafe implementation branch created: ${branchName}`);
             console.log(
-              "No product code has been changed. Building the approved specification is the next stage.",
+              `Implementation checklist saved to ${implementationPath}`,
             );
+            console.log("No product code has been changed.");
           } else {
             console.log(
               "\nStopped after the approved specification. Implementation was not authorized.",

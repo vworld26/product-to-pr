@@ -5,6 +5,7 @@
 - `src/cli.ts` is the command-line entry point. It reads what the user typed.
 - `src/plan.ts` contains the product logic. It turns an input into a plan.
 - `src/format.ts` converts the plan object into readable Markdown.
+- `src/implementation.ts` ties an approved plan to a branch, commit, and checklist.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -30,6 +31,13 @@ A test runs code with a known input and checks the result. Tests help detect acc
 ### Build
 
 TypeScript is checked and converted into JavaScript that Node.js can run.
+
+### Implementation package
+
+An implementation package records the approved specification, starting Git
+commit, relevant files, repository instructions, and work to verify. It gives a
+beginner a visible checklist and gives reviewers evidence that later changes
+started from the approved scope.
 
 ## First exercise
 
