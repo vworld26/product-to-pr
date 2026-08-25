@@ -1,10 +1,13 @@
 import { mkdir, open, stat, unlink, type FileHandle } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { parseOperatingMode, type OperatingMode } from "./mode.js";
+
 export type CliArguments = {
   repositoryPath: string;
   featureRequest: string;
   outputPath?: string;
+  modeOverride?: OperatingMode | "choose";
 };
 
 export class MissingOutputDirectoryError extends Error {
@@ -17,9 +20,32 @@ export function parseCliArguments(args: string[]): CliArguments {
   const [repositoryPath = "", ...remaining] = args;
   const featureParts: string[] = [];
   let outputPath: string | undefined;
+  let modeOverride: OperatingMode | "choose" | undefined;
 
   for (let index = 0; index < remaining.length; index += 1) {
     const argument = remaining[index];
+
+    if (argument === "--mode") {
+      if (modeOverride !== undefined) {
+        throw new Error("The --mode option can only be used once.");
+      }
+      const value = remaining[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("The --mode option requires a mode.");
+      }
+      if (value === "choose") {
+        modeOverride = "choose";
+      } else {
+        modeOverride = parseOperatingMode(value);
+        if (!modeOverride) {
+          throw new Error(
+            "The --mode option must be guide, build-with-me, take-the-lead, or choose.",
+          );
+        }
+      }
+      index += 1;
+      continue;
+    }
 
     if (argument !== "--output") {
       featureParts.push(argument);
@@ -31,7 +57,7 @@ export function parseCliArguments(args: string[]): CliArguments {
     }
 
     const value = remaining[index + 1];
-    if (!value || value === "--output") {
+    if (!value || value.startsWith("--")) {
       throw new Error("The --output option requires a filename.");
     }
 
@@ -43,6 +69,7 @@ export function parseCliArguments(args: string[]): CliArguments {
     repositoryPath,
     featureRequest: featureParts.join(" "),
     outputPath,
+    modeOverride,
   };
 }
 

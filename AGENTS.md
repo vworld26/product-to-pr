@@ -1,15 +1,22 @@
 # Product-to-PR Agent Guidelines
 
-## Learning-first approval protocol
+## Learning-first collaboration protocol
 
 For Product-to-PR work:
 
-1. Before every step, explain the exact action and why it is next.
-2. Ask for explicit approval and wait before proceeding.
-3. Approval applies only to the stated step; never infer approval for later steps.
-4. Treat inspection, branching, editing, testing, committing, pushing, opening a pull request, and merging as separate steps.
-5. Never modify files, create branches, run tests, commit, push, open a pull request, or merge automatically.
-6. After each approved step, show the result and wait for direction.
+1. Before substantial implementation, explain the bounded feature scope,
+   approach, acceptance criteria, and meaningful tradeoffs.
+2. Ask for explicit approval of that feature scope and wait before proceeding.
+3. After scope approval, routine inspection, branch creation, editing, and
+   testing may proceed without additional approval stops.
+4. Briefly teach important concepts and report meaningful milestones while
+   work is in progress.
+5. Stop and request direction if new information would materially expand or
+   change the approved scope.
+6. Treat committing, pushing, opening a pull request, merging, deleting, and
+   other consequential actions as separately approved steps.
+7. Finish each implementation batch with the diff, tests, typechecking,
+   decisions, unresolved questions, and recommended next checkpoint.
 
 ## Commit messages
 

@@ -28,7 +28,7 @@ function hasUnrelatedChanges(status: string): boolean {
     .filter(Boolean)
     .some((line) => {
       const path = line.slice(3);
-      return !path.startsWith(".product-to-pr/specifications/");
+      return !path.startsWith(".product-to-pr/");
     });
 }
 

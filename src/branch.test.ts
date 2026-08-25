@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -55,6 +55,23 @@ describe("createImplementationBranch", () => {
       await expect(
         createImplementationBranch(repositoryPath, "Unsafe change"),
       ).rejects.toThrow("already has unsaved changes");
+    } finally {
+      await rm(repositoryPath, { recursive: true, force: true });
+    }
+  });
+
+  it("allows Product-to-PR preferences without treating them as product work", async () => {
+    const repositoryPath = await createRepository();
+
+    try {
+      await mkdir(join(repositoryPath, ".product-to-pr"));
+      await writeFile(
+        join(repositoryPath, ".product-to-pr", "preferences.json"),
+        "{}\n",
+      );
+      await expect(
+        createImplementationBranch(repositoryPath, "Safe preference"),
+      ).resolves.toBe("product-to-pr/safe-preference");
     } finally {
       await rm(repositoryPath, { recursive: true, force: true });
     }

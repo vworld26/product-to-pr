@@ -25,12 +25,33 @@ npm install
 npm run dev -- . "Add a way to export a project plan as Markdown"
 ```
 
+Choose a collaboration level for one run:
+
+```bash
+npm run dev -- . "Add a greeting command" --mode guide
+npm run dev -- . "Add a greeting command" --mode build-with-me
+npm run dev -- . "Add a greeting command" --mode take-the-lead
+```
+
+Use `--mode choose` to choose again and save a new preference for that
+repository. Repository instructions and publication approvals apply in every
+mode.
+
 ## Verify it
 
 ```bash
 npm run typecheck
 npm test
 ```
+
+## Collaboration levels
+
+- **Guide me** — Explain each stage and ask before implementation and verification.
+- **Build with me** — Handle routine implementation and verification, then bring back the review.
+- **Take the lead** — Move through routine work with less explanation while preserving safety stops.
+
+Commit, push, pull-request, merge, deletion, and material scope decisions remain
+separately controlled in every level.
 
 ## Learning milestones
 
