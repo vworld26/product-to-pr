@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   loadOperatingMode,
+  operatingModes,
   parseModeChoice,
   parseOperatingMode,
   pausesBeforeRoutineWork,
@@ -30,6 +31,26 @@ describe("operating modes", () => {
     expect(usesConciseRoutineUpdates("guide")).toBe(false);
     expect(usesConciseRoutineUpdates("build-with-me")).toBe(false);
     expect(usesConciseRoutineUpdates("take-the-lead")).toBe(true);
+  });
+
+  it("keeps canonical labels and descriptions in one product contract", () => {
+    expect(operatingModes).toEqual({
+      guide: {
+        label: "Guide me",
+        description:
+          "Explain each stage and ask before implementation and verification.",
+      },
+      "build-with-me": {
+        label: "Build with me",
+        description:
+          "Handle routine implementation and verification, then bring back the review.",
+      },
+      "take-the-lead": {
+        label: "Take the lead",
+        description:
+          "Move through routine work with less explanation while preserving safety stops.",
+      },
+    });
   });
 
   it("persists a repository preference without changing product files", async () => {

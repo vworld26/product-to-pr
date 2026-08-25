@@ -69,10 +69,13 @@ evidence, and verification results so reviewers can trace why the change exists.
 ### Graduated autonomy
 
 An operating mode changes how often Product-to-PR pauses during routine work;
-it does not remove repository rules or safety boundaries. `Guide me` exposes
-more checkpoints, `Build with me` combines approved implementation and
-verification, and `Take the lead` reduces routine explanation. Consequential
-actions remain separate choices in every mode.
+it does not remove repository rules or safety boundaries.
+
+- **Guide me** — Explain each stage and ask before implementation and verification.
+- **Build with me** — Handle routine implementation and verification, then bring back the review.
+- **Take the lead** — Move through routine work with less explanation while preserving safety stops.
+
+Consequential actions remain separate choices in every mode.
 
 The product asks about this after specification approval, when the user has
 enough context to understand what they are authorizing. A saved repository

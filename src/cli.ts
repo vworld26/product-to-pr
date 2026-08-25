@@ -22,7 +22,7 @@ import { preserveImplementationPackage } from "./implementation.js";
 import { inspectRepository } from "./inspect.js";
 import {
   loadOperatingMode,
-  operatingModeDescriptions,
+  operatingModes,
   parseModeChoice,
   pausesBeforeRoutineWork,
   saveOperatingMode,
@@ -181,13 +181,13 @@ try {
           if (!operatingMode) {
             console.log("\nHow would you like to continue?");
             console.log(
-              `[G] Guide me (recommended) — ${operatingModeDescriptions.guide}`,
+              `[G] ${operatingModes.guide.label} (recommended) — ${operatingModes.guide.description}`,
             );
             console.log(
-              `[B] Build with me — ${operatingModeDescriptions["build-with-me"]}`,
+              `[B] ${operatingModes["build-with-me"].label} — ${operatingModes["build-with-me"].description}`,
             );
             console.log(
-              `[T] Take the lead — ${operatingModeDescriptions["take-the-lead"]}`,
+              `[T] ${operatingModes["take-the-lead"].label} — ${operatingModes["take-the-lead"].description}`,
             );
             console.log("[S] Stop here — keep the approved specification for later.");
             let modeChoice: ModeChoice | undefined;
@@ -208,7 +208,7 @@ try {
             console.log(`\nSaved ${operatingMode} for this repository.`);
           } else {
             console.log(`\nOperating mode: ${operatingMode}`);
-            console.log(operatingModeDescriptions[operatingMode]);
+            console.log(operatingModes[operatingMode].description);
           }
 
           let buildChoice: BuildChoice = "build";

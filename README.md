@@ -46,9 +46,9 @@ npm test
 
 ## Collaboration levels
 
-- **Guide me** explains each stage and asks before implementation and verification.
-- **Build with me** handles routine implementation and verification, then returns a review.
-- **Take the lead** uses a quieter routine workflow while preserving consequential safety stops.
+- **Guide me** — Explain each stage and ask before implementation and verification.
+- **Build with me** — Handle routine implementation and verification, then bring back the review.
+- **Take the lead** — Move through routine work with less explanation while preserving safety stops.
 
 Commit, push, pull-request, merge, deletion, and material scope decisions remain
 separately controlled in every level.

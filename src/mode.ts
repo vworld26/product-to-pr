@@ -4,12 +4,25 @@ import { join } from "node:path";
 export type OperatingMode = "guide" | "build-with-me" | "take-the-lead";
 export type ModeChoice = OperatingMode | "stop";
 
-export const operatingModeDescriptions: Record<OperatingMode, string> = {
-  guide: "Explain each stage and ask before implementation and verification.",
-  "build-with-me":
-    "Handle routine implementation and verification, then bring back the review.",
-  "take-the-lead":
-    "Move through routine work with less explanation while preserving safety stops.",
+export const operatingModes: Record<
+  OperatingMode,
+  { label: string; description: string }
+> = {
+  guide: {
+    label: "Guide me",
+    description:
+      "Explain each stage and ask before implementation and verification.",
+  },
+  "build-with-me": {
+    label: "Build with me",
+    description:
+      "Handle routine implementation and verification, then bring back the review.",
+  },
+  "take-the-lead": {
+    label: "Take the lead",
+    description:
+      "Move through routine work with less explanation while preserving safety stops.",
+  },
 };
 
 export function parseOperatingMode(input: string): OperatingMode | undefined {
