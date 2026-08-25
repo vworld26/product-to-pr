@@ -16,10 +16,15 @@ export type PreparedRepository = {
   repositoryPath: string;
   source: "local" | "github";
   sourceUrl?: string;
+  sourceRef?: string;
   workspaceRoot?: string;
 };
 
 export type WorkspaceChoice = "keep" | "delete";
+export type WorkspaceApproval = {
+  approved: boolean;
+  sourceRef?: string;
+};
 
 export function parseGitHubRepositoryUrl(input: string): string | undefined {
   try {
@@ -49,6 +54,7 @@ export type RepositoryMetadataReader = (
 export type RepositoryCloner = (
   nameWithOwner: string,
   destination: string,
+  sourceRef?: string,
 ) => Promise<void>;
 
 const readGitHubRepository: RepositoryMetadataReader = async (nameWithOwner) => {
@@ -63,17 +69,23 @@ const readGitHubRepository: RepositoryMetadataReader = async (nameWithOwner) => 
 const cloneGitHubRepository: RepositoryCloner = async (
   nameWithOwner,
   destination,
+  sourceRef,
 ) => {
+  const cloneOptions = sourceRef
+    ? ["--branch", sourceRef, "--depth=1"]
+    : ["--depth=1"];
   await execFileAsync(
     "gh",
-    ["repo", "clone", nameWithOwner, destination, "--", "--depth=1"],
+    ["repo", "clone", nameWithOwner, destination, "--", ...cloneOptions],
     { encoding: "utf8" },
   );
 };
 
 export async function prepareRepository(
   input: string,
-  approveWorkspace: (repository: GitHubRepository) => Promise<boolean>,
+  approveWorkspace: (
+    repository: GitHubRepository,
+  ) => Promise<boolean | WorkspaceApproval>,
   readMetadata: RepositoryMetadataReader = readGitHubRepository,
   cloneRepository: RepositoryCloner = cloneGitHubRepository,
 ): Promise<PreparedRepository> {
@@ -96,7 +108,10 @@ export async function prepareRepository(
       `GitHub repository access failed. Check \`gh auth status\`, the URL, and your permissions. ${message}`,
     );
   }
-  if (!await approveWorkspace(repository)) {
+  const approval = await approveWorkspace(repository);
+  const approved = typeof approval === "boolean" ? approval : approval.approved;
+  const sourceRef = typeof approval === "boolean" ? undefined : approval.sourceRef;
+  if (!approved) {
     throw new Error("GitHub workspace creation was not approved.");
   }
 
@@ -108,7 +123,7 @@ export async function prepareRepository(
     basename(repository.nameWithOwner),
   );
   try {
-    await cloneRepository(repository.nameWithOwner, repositoryPath);
+    await cloneRepository(repository.nameWithOwner, repositoryPath, sourceRef);
   } catch (error) {
     await rm(workspaceRoot, { recursive: true, force: true });
     const message = error instanceof Error ? error.message : "Unknown clone error.";
@@ -119,6 +134,7 @@ export async function prepareRepository(
     repositoryPath,
     source: "github",
     sourceUrl: repository.url,
+    ...(sourceRef ? { sourceRef } : {}),
     workspaceRoot,
   };
 }

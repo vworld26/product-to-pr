@@ -35,20 +35,29 @@ describe("repository onboarding", () => {
   });
 
   it("creates and deletes an approved managed workspace", async () => {
+    let clonedRef: string | undefined;
     const prepared = await prepareRepository(
       "https://github.com/vworld26/validation",
-      async (repository) => repository.isPrivate,
+      async (repository) => ({
+        approved: repository.isPrivate,
+        sourceRef: "claude/in-progress",
+      }),
       async () => ({
         nameWithOwner: "vworld26/validation",
         isPrivate: true,
         url: "https://github.com/vworld26/validation",
       }),
-      async (_nameWithOwner, destination) => mkdir(destination),
+      async (_nameWithOwner, destination, sourceRef) => {
+        clonedRef = sourceRef;
+        await mkdir(destination);
+      },
     );
 
     expect(prepared.source).toBe("github");
     expect(prepared.repositoryPath).toMatch(/product-to-pr-workspace-/);
     expect((await stat(prepared.repositoryPath)).isDirectory()).toBe(true);
+    expect(prepared.sourceRef).toBe("claude/in-progress");
+    expect(clonedRef).toBe("claude/in-progress");
     await deleteManagedWorkspace(prepared);
     await expect(stat(prepared.repositoryPath)).rejects.toThrow();
   });

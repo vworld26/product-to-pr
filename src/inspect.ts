@@ -82,16 +82,30 @@ async function listSearchableFiles(
   return files;
 }
 
-function explainMatch(path: string, matchedTerms: string[]): string {
+function explainMatch(path: string): string {
+  const filename = path.split("/").at(-1) ?? path;
   if (path.includes(".test.") || path.includes(".spec.")) {
-    return `Tests related behavior matching: ${matchedTerms.join(", ")}.`;
+    return "Verifies the related behavior and helps prevent regressions.";
   }
-
-  if (path.endsWith("format.ts") || path.endsWith("format.tsx")) {
-    return `Formats output related to: ${matchedTerms.join(", ")}.`;
+  if (filename === "SKILL.md") {
+    return "Defines how this workflow is used, including its steps and deliverables.";
   }
-
-  return `Contains code related to: ${matchedTerms.join(", ")}.`;
+  if (/^(README|AGENTS)\.md$/i.test(filename) || path.includes("references/")) {
+    return "Documents the current workflow and the behavior users should expect.";
+  }
+  if (filename.includes("hub-template")) {
+    return "Builds the summary hub where completed deliverables are presented.";
+  }
+  if (filename.includes("template")) {
+    return "Generates one of the workflow deliverables that this feature may extend.";
+  }
+  if (filename.startsWith("check-") || filename.startsWith("verify-")) {
+    return "Checks generated output for mistakes or inconsistent information.";
+  }
+  if (filename.includes("format")) {
+    return "Turns structured information into the output a user reads.";
+  }
+  return "Contains existing behavior that is likely to be affected by this feature.";
 }
 
 export async function discoverRelevantFiles(
@@ -131,7 +145,7 @@ export async function discoverRelevantFiles(
       .slice(0, 6)
       .map((match) => ({
         path: match.path,
-        reason: explainMatch(match.path, match.matchedTerms),
+        reason: explainMatch(match.path),
       })),
     searched: paths.length,
   };
@@ -231,6 +245,14 @@ async function inferTestApproach(
   if (paths.includes("pyproject.toml")) {
     const content = await readFile(join(repositoryPath, "pyproject.toml"), "utf8");
     if (content.includes("[tool.pytest")) return ["pytest: python -m pytest"];
+  }
+  const possibleChecks = paths.filter((path) =>
+    /(?:^|\/)(?:check|test|verify)[\w-]*\.(?:js|py|sh)$/.test(path)
+  );
+  if (possibleChecks.length > 0) {
+    return [
+      `Possible check scripts were found (${possibleChecks.slice(0, 3).join(", ")}), but no repository configuration marks a command as safe to run automatically.`,
+    ];
   }
   return ["No safe automated verification command discovered."];
 }

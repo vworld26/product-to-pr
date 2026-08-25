@@ -9,6 +9,7 @@ const reasoningSchema = {
   type: "object",
   additionalProperties: false,
   required: [
+    "title",
     "summary",
     "clarifyingQuestions",
     "productDecisions",
@@ -19,6 +20,7 @@ const reasoningSchema = {
     "testPlan",
   ],
   properties: {
+    title: { type: "string" },
     summary: { type: "string" },
     clarifyingQuestions: {
       type: "array",
@@ -60,7 +62,13 @@ export function buildReasoningPrompt(
     "Act as a product manager and software planner.",
     "Create a concise, repository-aware product specification.",
     "Do not edit files or run commands.",
-    "Ask only questions that materially affect the product decision.",
+    "Start with product discovery, not implementation.",
+    "Write title as a short feature name, never a truncated copy of the request.",
+    "Write summary in non-technical language: what the feature does, who it helps, and why it matters. Do not mention files, libraries, schemas, or implementation details.",
+    "Ask adaptive questions about the user, desired behavior, configurable variables, outputs, missing information, and boundaries before asking technical questions.",
+    "Ask only questions that materially affect the product decision. Each question must briefly say why it matters and include a recommended default when appropriate.",
+    "Prefix every product decision with exactly one source label: Confirmed by user:, Repository evidence:, Recommended default:, or Assumption to confirm:.",
+    "Never turn a recommendation or assumption into a confirmed requirement.",
     "Make acceptance criteria observable and testable.",
     "",
     `Feature request: ${featureRequest}`,
@@ -76,6 +84,7 @@ export function buildReasoningPrompt(
       ...answers.map((answer) => `- ${answer}`),
       "",
       "Convert these answers into explicit productDecisions.",
+      "Label decisions based on direct user answers as Confirmed by user:.",
       "Remove questions that the answers resolved; keep only material unanswered questions.",
     );
   }

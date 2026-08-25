@@ -62,9 +62,12 @@ describe("createProductPlan", () => {
       "Let users save a product plan to a file",
       repositoryOverview,
       {
+        title: "Save product plans",
         summary: "Allow users to preserve a generated plan.",
         clarifyingQuestions: ["Which file format should be supported first?"],
-        productDecisions: ["Saving is explicitly requested by the user."],
+        productDecisions: [
+          "Confirmed by user: Saving is explicitly requested.",
+        ],
         dependencies: ["Use the existing formatter output."],
         acceptanceCriteria: ["A user can save the generated plan."],
         implementationSteps: ["Add an explicit output option."],
@@ -74,11 +77,12 @@ describe("createProductPlan", () => {
     );
 
     expect(plan.summary).toBe("Allow users to preserve a generated plan.");
+    expect(plan.title).toBe("Save product plans");
     expect(plan.clarifyingQuestions).toEqual([
       "Which file format should be supported first?",
     ]);
     expect(plan.productDecisions).toEqual([
-      "Saving is explicitly requested by the user.",
+      "Confirmed by user: Saving is explicitly requested.",
     ]);
     expect(plan.acceptanceCriteria).toEqual([
       "A user can save the generated plan.",
@@ -182,6 +186,12 @@ describe("inspectRepository", () => {
     expect(overview.relevantFiles.every((file) => file.reason.length > 0)).toBe(
       true,
     );
+    expect(
+      overview.relevantFiles.every((file) =>
+        !file.reason.includes("matching:") &&
+        !file.reason.includes("related to:")
+      ),
+    ).toBe(true);
     expect(overview.inspectionNotes[0]).toMatch(/^Searched \d+ readable/);
   });
 });

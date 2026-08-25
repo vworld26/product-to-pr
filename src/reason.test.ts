@@ -31,6 +31,10 @@ describe("buildReasoningPrompt", () => {
     expect(prompt).toContain("Let users save a product plan to a file");
     expect(prompt).toContain("src/format.ts");
     expect(prompt).toContain("Do not edit files or run commands.");
+    expect(prompt).toContain("Start with product discovery");
+    expect(prompt).toContain("what the feature does, who it helps");
+    expect(prompt).toContain("Confirmed by user:");
+    expect(prompt).toContain("recommended default");
   });
 
   it("includes user answers for a revised specification", () => {
@@ -56,5 +60,6 @@ describe("buildReasoningPrompt", () => {
 
     expect(prompt).toContain("Should existing files be overwritten?");
     expect(prompt).toContain("Convert these answers into explicit productDecisions.");
+    expect(prompt).toContain("Label decisions based on direct user answers");
   });
 });

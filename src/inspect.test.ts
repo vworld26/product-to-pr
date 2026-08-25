@@ -104,7 +104,7 @@ describe("discoverRelevantFiles", () => {
       ]),
     );
     expect(overview.testApproach).toEqual([
-      "No safe automated verification command discovered.",
+      "Possible check scripts were found (venture-evaluation/scripts/check.py), but no repository configuration marks a command as safe to run automatically.",
     ]);
   });
 });

@@ -16,6 +16,12 @@ import {
   type VerificationChoice,
 } from "./approval.js";
 import { createImplementationBranch } from "./branch.js";
+import {
+  parseInterpretationChoice,
+  parseRepositorySourceChoice,
+  type InterpretationChoice,
+  type RepositorySourceChoice,
+} from "./discovery.js";
 import { implementApprovedPlan } from "./execute.js";
 import { formatPlan } from "./format.js";
 import { preserveImplementationPackage } from "./implementation.js";
@@ -120,12 +126,36 @@ try {
             `\n${repository.nameWithOwner} is a ${repository.isPrivate ? "private" : "public"} GitHub repository.`,
           );
           console.log(
-            "Product-to-PR needs a temporary working folder on this computer so it can inspect and safely change files. This does not change GitHub, and publishing still requires separate approvals.",
+            "Product-to-PR will create a real Git checkout in a managed working folder. It can inspect, branch, edit, and test the real code there. GitHub changes only after separate commit, push, and pull-request approvals.",
+          );
+          console.log(
+            "If you already have current work in a local folder, answer no and rerun Product-to-PR with that folder path so existing changes are preserved.",
           );
           const answer = await setupTerminal.question(
             "Create the temporary working folder? [Y/N]\n> ",
           );
-          return ["y", "yes"].includes(answer.trim().toLowerCase());
+          if (!["y", "yes"].includes(answer.trim().toLowerCase())) {
+            return false;
+          }
+          console.log("\nWhich version of the GitHub repository should be used?");
+          console.log("[D] Default branch — start from the repository's main version.");
+          console.log("[B] Another branch — include work already pushed by you or another agent.");
+          let sourceChoice: RepositorySourceChoice | undefined;
+          while (!sourceChoice) {
+            sourceChoice = parseRepositorySourceChoice(
+              await setupTerminal.question("> "),
+            );
+            if (!sourceChoice) console.log("Please enter default or branch.");
+          }
+          if (sourceChoice === "default") return true;
+          let sourceRef = "";
+          while (!sourceRef) {
+            sourceRef = (
+              await setupTerminal.question("Enter the existing GitHub branch name:\n> ")
+            ).trim();
+            if (!sourceRef) console.log("A branch name is required.");
+          }
+          return { approved: true, sourceRef };
         },
       );
     } finally {
@@ -156,8 +186,40 @@ try {
     const answers: string[] = [];
 
     try {
+      console.log("\nWhat I understand you want:\n");
+      console.log(reasoning.summary);
+      let interpretationChoice: InterpretationChoice | undefined;
+      while (!interpretationChoice) {
+        interpretationChoice = parseInterpretationChoice(
+          await terminal.question(
+            "\nChoose [C]onfirm or [E]dit this interpretation:\n> ",
+          ),
+        );
+        if (!interpretationChoice) console.log("Please enter confirm or edit.");
+      }
+      if (interpretationChoice === "correct") {
+        const correction = (
+          await terminal.question(
+            "Describe what should change in the interpretation:\n> ",
+          )
+        ).trim();
+        if (correction) {
+          answers.push(`User correction to the feature interpretation — ${correction}`);
+          reasoning = await reasonAboutFeature(
+            repositoryPath,
+            featureRequest,
+            repositoryOverview,
+            answers,
+          );
+          console.log("\nUpdated feature description:\n");
+          console.log(reasoning.summary);
+        }
+      } else {
+        answers.push("The user confirmed the plain-language feature interpretation.");
+      }
+
       if (reasoning.clarifyingQuestions.length > 0) {
-        console.log("\nA few product decisions before I finalize the plan:\n");
+        console.log("\nA few product questions before I finalize the plan:\n");
         for (const question of reasoning.clarifyingQuestions) {
           const answer = await terminal.question(`${question}\n> `);
           answers.push(
@@ -223,6 +285,8 @@ try {
             specification,
           );
           console.log(`\nSpecification approved and saved to ${path}`);
+          console.log("\nYour approved specification:\n");
+          console.log(specification);
           console.log("No product code was changed.");
 
           let operatingMode: OperatingMode | undefined =
@@ -475,6 +539,9 @@ try {
         let workspaceChoice: WorkspaceChoice | undefined;
         console.log(
           `\nTemporary working folder: ${preparedRepository.repositoryPath}`,
+        );
+        console.log(
+          "Deleting this folder also deletes any specifications or unpushed work stored only inside it. GitHub content is not deleted.",
         );
         while (!workspaceChoice) {
           workspaceChoice = parseWorkspaceChoice(
