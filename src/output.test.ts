@@ -31,6 +31,7 @@ describe("parseCliArguments", () => {
       repositoryPath: ".",
       featureRequest: "Add Markdown export",
       outputPath: "plan.md",
+      modeOverride: undefined,
     });
   });
 
@@ -39,7 +40,21 @@ describe("parseCliArguments", () => {
       repositoryPath: ".",
       featureRequest: "Add Markdown export",
       outputPath: undefined,
+      modeOverride: undefined,
     });
+  });
+
+  it("supports a one-run operating mode override", () => {
+    expect(
+      parseCliArguments([".", "Add", "export", "--mode", "build-with-me"]),
+    ).toEqual({
+      repositoryPath: ".",
+      featureRequest: "Add export",
+      outputPath: undefined,
+      modeOverride: "build-with-me",
+    });
+    expect(() => parseCliArguments([".", "Feature", "--mode", "fast"]))
+      .toThrow("must be guide, build-with-me, take-the-lead, or choose");
   });
 
   it("rejects --output without a filename", () => {

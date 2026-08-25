@@ -28,12 +28,12 @@ Current capabilities include:
 - creation of an isolated implementation branch after separate approval; and
 - automated pull-request checks for type checking and tests.
 
-## Next: approved plan to verified local change
+## Available: approved plan to verified local change
 
 **Outcome:** A user can authorize implementation of an approved specification
 and inspect a verified local diff before anything is published.
 
-Planned capabilities:
+Current capabilities:
 
 - bind implementation to the exact approved specification and repository state;
 - translate acceptance criteria into a scoped implementation checklist;
@@ -53,12 +53,12 @@ Exit evidence:
   acceptance-criteria reporting; and
 - the user can stop after any stage with a useful local artifact and clear state.
 
-## Later: review-ready pull request
+## Available: review-ready pull request
 
 **Outcome:** A user can turn an approved and verified local change into a pull
 request that gives reviewers the context they need.
 
-Candidate capabilities:
+Current capabilities:
 
 - propose a Conventional Commit message derived from the observable change;
 - create a commit only after the user reviews the diff and approves committing;
@@ -69,6 +69,8 @@ Candidate capabilities:
 - incorporate continuous-integration results into the final status; and
 - support revision loops without losing the approved specification or review
   history.
+- repository-persisted Guide me, Build with me, and Take the lead modes that
+  adjust routine pauses and explanation while preserving publication approvals.
 
 Exit evidence:
 
@@ -76,13 +78,14 @@ Exit evidence:
 - publication actions are independently authorized and auditable; and
 - failed pushes or pull-request operations leave the local branch recoverable.
 
-## Later: quality, evaluation, and recovery
+## Next: quality, evaluation, and recovery
 
 **Outcome:** Teams can understand whether Product-to-PR produces reliable plans
 and changes, and can recover safely when it does not.
 
 Candidate capabilities:
 
+- richer autonomy policies for safe retries and repository-specific risk levels;
 - evaluation fixtures for specification quality, repository grounding, scope
   control, and acceptance-criteria coverage;
 - structured event logs with sensitive-data boundaries;

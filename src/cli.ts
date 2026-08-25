@@ -21,6 +21,16 @@ import { formatPlan } from "./format.js";
 import { preserveImplementationPackage } from "./implementation.js";
 import { inspectRepository } from "./inspect.js";
 import {
+  loadOperatingMode,
+  operatingModeDescriptions,
+  parseModeChoice,
+  pausesBeforeRoutineWork,
+  saveOperatingMode,
+  type ModeChoice,
+  type OperatingMode,
+  usesConciseRoutineUpdates,
+} from "./mode.js";
+import {
   MissingOutputDirectoryError,
   parseCliArguments,
   writeOutputFile,
@@ -63,9 +73,8 @@ async function saveRequestedOutput(
 }
 
 try {
-  const { repositoryPath, featureRequest, outputPath } = parseCliArguments(
-    process.argv.slice(2),
-  );
+  const { repositoryPath, featureRequest, outputPath, modeOverride } =
+    parseCliArguments(process.argv.slice(2));
 
   if (!repositoryPath) {
     throw new Error("A repository folder is required.");
@@ -163,16 +172,59 @@ try {
           console.log(`\nSpecification approved and saved to ${path}`);
           console.log("No product code was changed.");
 
-          let buildChoice: BuildChoice | undefined;
-          while (!buildChoice) {
-            buildChoice = parseBuildChoice(
-              await terminal.question(
-                "\nChoose [B]uild now or [S]top after the specification:\n> ",
-              ),
+          let operatingMode: OperatingMode | undefined =
+            modeOverride && modeOverride !== "choose"
+              ? modeOverride
+              : modeOverride === "choose"
+              ? undefined
+              : await loadOperatingMode(repositoryPath);
+          if (!operatingMode) {
+            console.log("\nHow would you like to continue?");
+            console.log(
+              `[G] Guide me (recommended) — ${operatingModeDescriptions.guide}`,
             );
-            if (!buildChoice) {
-              console.log("Please enter build or stop.");
+            console.log(
+              `[B] Build with me — ${operatingModeDescriptions["build-with-me"]}`,
+            );
+            console.log(
+              `[T] Take the lead — ${operatingModeDescriptions["take-the-lead"]}`,
+            );
+            console.log("[S] Stop here — keep the approved specification for later.");
+            let modeChoice: ModeChoice | undefined;
+            while (!modeChoice) {
+              modeChoice = parseModeChoice(await terminal.question("> "));
+              if (!modeChoice) {
+                console.log("Please enter guide, build with me, take the lead, or stop.");
+              }
             }
+            if (modeChoice === "stop") {
+              console.log(
+                "\nStopped after the approved specification. Implementation was not authorized.",
+              );
+              break;
+            }
+            operatingMode = modeChoice;
+            await saveOperatingMode(repositoryPath, operatingMode);
+            console.log(`\nSaved ${operatingMode} for this repository.`);
+          } else {
+            console.log(`\nOperating mode: ${operatingMode}`);
+            console.log(operatingModeDescriptions[operatingMode]);
+          }
+
+          let buildChoice: BuildChoice = "build";
+          if (pausesBeforeRoutineWork(operatingMode)) {
+            let guidedBuildChoice: BuildChoice | undefined;
+            while (!guidedBuildChoice) {
+              guidedBuildChoice = parseBuildChoice(
+                await terminal.question(
+                  "\nChoose [B]uild now or [S]top after the specification:\n> ",
+                ),
+              );
+              if (!guidedBuildChoice) {
+                console.log("Please enter build or stop.");
+              }
+            }
+            buildChoice = guidedBuildChoice;
           }
 
           if (buildChoice === "build") {
@@ -186,9 +238,11 @@ try {
               plan,
             );
             console.log(`\nSafe implementation branch created: ${branchName}`);
-            console.log(
-              `Implementation checklist saved to ${implementationPath}`,
-            );
+            if (!usesConciseRoutineUpdates(operatingMode)) {
+              console.log(
+                `Implementation checklist saved to ${implementationPath}`,
+              );
+            }
             console.log("\nImplementing the approved change locally...");
             const implementationSummary = await implementApprovedPlan(
               repositoryPath,
@@ -203,18 +257,22 @@ try {
             const verificationCommands = await discoverVerificationCommands(
               repositoryPath,
             );
-            console.log("\nAvailable verification commands:");
+            console.log("\nVerification commands:");
             verificationCommands.forEach((command) =>
               console.log(`- ${command.command}`)
             );
-            let verificationChoice: VerificationChoice | undefined;
-            while (!verificationChoice) {
-              verificationChoice = parseVerificationChoice(
-                await terminal.question("\nChoose [V]erify or [S]top here:\n> "),
-              );
-              if (!verificationChoice) {
-                console.log("Please enter verify or stop.");
+            let verificationChoice: VerificationChoice = "verify";
+            if (pausesBeforeRoutineWork(operatingMode)) {
+              let guidedVerificationChoice: VerificationChoice | undefined;
+              while (!guidedVerificationChoice) {
+                guidedVerificationChoice = parseVerificationChoice(
+                  await terminal.question("\nChoose [V]erify or [S]top here:\n> "),
+                );
+                if (!guidedVerificationChoice) {
+                  console.log("Please enter verify or stop.");
+                }
               }
+              verificationChoice = guidedVerificationChoice;
             }
             if (verificationChoice === "verify") {
               const verification = await runVerificationCommands(
@@ -228,6 +286,16 @@ try {
               );
               console.log(`\n${formatLocalReview(review)}`);
               console.log("\nNothing was committed or published.");
+
+              if (operatingMode === "guide") {
+                console.log(
+                  "\nYou completed a guided local change. Use --mode build-with-me next time when you want routine implementation and verification to flow together.",
+                );
+              } else if (operatingMode === "build-with-me") {
+                console.log(
+                  "\nBuild with me is active. When this level feels comfortable, you can try --mode take-the-lead for a quieter routine workflow.",
+                );
+              }
 
               if (verification.every((result) => result.passed)) {
                 const commitMessage = proposeCommitMessage(plan);

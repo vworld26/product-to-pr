@@ -10,6 +10,7 @@
 - `src/verify.ts` previews and runs known repository checks after approval.
 - `src/review.ts` explains the diff, test evidence, and acceptance status.
 - `src/publication.ts` commits and publishes only after separate approvals.
+- `src/mode.ts` stores how much routine guidance the user wants.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -64,6 +65,18 @@ After successful verification, Product-to-PR proposes a Conventional Commit
 message. Committing, pushing, and opening a pull request each require a new
 choice. The pull request carries the product outcome, changed files, acceptance
 evidence, and verification results so reviewers can trace why the change exists.
+
+### Graduated autonomy
+
+An operating mode changes how often Product-to-PR pauses during routine work;
+it does not remove repository rules or safety boundaries. `Guide me` exposes
+more checkpoints, `Build with me` combines approved implementation and
+verification, and `Take the lead` reduces routine explanation. Consequential
+actions remain separate choices in every mode.
+
+The product asks about this after specification approval, when the user has
+enough context to understand what they are authorizing. A saved repository
+preference can be overridden for one run, and `--mode choose` reopens the choice.
 
 ## First exercise
 
