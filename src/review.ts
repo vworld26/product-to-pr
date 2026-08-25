@@ -1,4 +1,5 @@
 import { execFile, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,10 +18,18 @@ export type AcceptanceResult = {
 
 export type LocalReview = {
   changedFiles: string[];
+  changeDigest: string;
   diffSummary: string;
   verification: VerificationResult[];
   acceptance: AcceptanceResult[];
   recoveryGuidance: string[];
+};
+
+export type LocalChangeEvidence = {
+  changedFiles: string[];
+  diffSummary: string;
+  diff: string;
+  changeDigest: string;
 };
 
 export type AcceptanceReviewer = (
@@ -155,6 +164,38 @@ export async function createLocalReview(
   verification: VerificationResult[],
   reviewer: AcceptanceReviewer = reviewAcceptanceWithCodex,
 ): Promise<LocalReview> {
+  const evidence = await readLocalChangeEvidence(repositoryPath);
+  const acceptance = normalizeAcceptance(
+    plan.acceptanceCriteria,
+    await reviewer(
+      buildAcceptancePrompt(
+        plan.acceptanceCriteria,
+        evidence.diff,
+        verification,
+      ),
+    ),
+  );
+  const recoveryGuidance = verification.some((result) => !result.passed)
+    ? [
+      "Review the failed command output before committing.",
+      "Fix the local changes, then run verification again.",
+      "Nothing has been committed or published, so you can stop safely.",
+    ]
+    : ["Review any acceptance criteria marked for manual review before committing."];
+
+  return {
+    changedFiles: evidence.changedFiles,
+    changeDigest: evidence.changeDigest,
+    diffSummary: evidence.diffSummary,
+    verification,
+    acceptance,
+    recoveryGuidance,
+  };
+}
+
+export async function readLocalChangeEvidence(
+  repositoryPath: string,
+): Promise<LocalChangeEvidence> {
   const [changedFileOutput, diffSummary, diff] = await Promise.all([
     git(repositoryPath, ["status", "--short"]),
     git(repositoryPath, ["diff", "--stat"]),
@@ -181,30 +222,16 @@ export async function createLocalReview(
     }),
   );
   const completeDiff = [diff, ...untrackedEvidence].filter(Boolean).join("\n\n");
-  const acceptance = normalizeAcceptance(
-    plan.acceptanceCriteria,
-    await reviewer(
-      buildAcceptancePrompt(plan.acceptanceCriteria, completeDiff, verification),
-    ),
-  );
   const completeDiffSummary = [
     diffSummary,
     ...untrackedFiles.map((path) => `New file: ${path}`),
   ].filter(Boolean).join("\n");
-  const recoveryGuidance = verification.some((result) => !result.passed)
-    ? [
-      "Review the failed command output before committing.",
-      "Fix the local changes, then run verification again.",
-      "Nothing has been committed or published, so you can stop safely.",
-    ]
-    : ["Review any acceptance criteria marked for manual review before committing."];
-
+  const changeDigest = createHash("sha256").update(completeDiff).digest("hex");
   return {
     changedFiles,
+    changeDigest,
     diffSummary: completeDiffSummary,
-    verification,
-    acceptance,
-    recoveryGuidance,
+    diff: completeDiff,
   };
 }
 

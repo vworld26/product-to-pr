@@ -40,6 +40,7 @@ describe("local review", () => {
       const output = formatLocalReview(review);
 
       expect(review.changedFiles).toEqual(["README.md", "feature.ts"]);
+      expect(review.changeDigest).toMatch(/^[a-f0-9]{64}$/);
       expect(reviewPrompt).toContain("New file: feature.ts");
       expect(review.diffSummary).toContain("New file: feature.ts");
       expect(output).toContain("FAIL: npm test");

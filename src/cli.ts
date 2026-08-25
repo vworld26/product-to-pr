@@ -2,10 +2,16 @@ import { createInterface } from "node:readline/promises";
 
 import {
   parseBuildChoice,
+  parseCommitChoice,
+  parsePullRequestChoice,
+  parsePushChoice,
   parseReviewChoice,
   parseVerificationChoice,
   preserveApprovedSpecification,
   type BuildChoice,
+  type CommitChoice,
+  type PullRequestChoice,
+  type PushChoice,
   type ReviewChoice,
   type VerificationChoice,
 } from "./approval.js";
@@ -20,6 +26,12 @@ import {
   writeOutputFile,
 } from "./output.js";
 import { createProductPlan } from "./plan.js";
+import {
+  commitReviewedChanges,
+  openPullRequest,
+  proposeCommitMessage,
+  pushImplementationBranch,
+} from "./publication.js";
 import { reasonAboutFeature } from "./reason.js";
 import { createLocalReview, formatLocalReview } from "./review.js";
 import { discoverVerificationCommands, runVerificationCommands } from "./verify.js";
@@ -216,6 +228,52 @@ try {
               );
               console.log(`\n${formatLocalReview(review)}`);
               console.log("\nNothing was committed or published.");
+
+              if (verification.every((result) => result.passed)) {
+                const commitMessage = proposeCommitMessage(plan);
+                console.log(`\nProposed commit message:\n${commitMessage}`);
+                let commitChoice: CommitChoice | undefined;
+                while (!commitChoice) {
+                  commitChoice = parseCommitChoice(
+                    await terminal.question("\nChoose [C]ommit or [S]top here:\n> "),
+                  );
+                  if (!commitChoice) console.log("Please enter commit or stop.");
+                }
+                if (commitChoice === "commit") {
+                  const commit = await commitReviewedChanges(
+                    repositoryPath,
+                    commitMessage,
+                    review,
+                  );
+                  console.log(`\nReviewed changes committed: ${commit}`);
+                  let pushChoice: PushChoice | undefined;
+                  while (!pushChoice) {
+                    pushChoice = parsePushChoice(
+                      await terminal.question("\nChoose [P]ush or [S]top here:\n> "),
+                    );
+                    if (!pushChoice) console.log("Please enter push or stop.");
+                  }
+                  if (pushChoice === "push") {
+                    const branch = await pushImplementationBranch(repositoryPath);
+                    console.log(`\nBranch pushed: ${branch}`);
+                    let pullRequestChoice: PullRequestChoice | undefined;
+                    while (!pullRequestChoice) {
+                      pullRequestChoice = parsePullRequestChoice(
+                        await terminal.question("\nChoose open [P]ull request or [S]top here:\n> "),
+                      );
+                      if (!pullRequestChoice) console.log("Please enter pull request or stop.");
+                    }
+                    if (pullRequestChoice === "pull-request") {
+                      const url = await openPullRequest(repositoryPath, plan, review);
+                      console.log(`\nPull request opened: ${url}`);
+                    }
+                  }
+                }
+              } else {
+                console.log(
+                  "\nCommit is unavailable because verification failed. Fix the local changes and verify again.",
+                );
+              }
             } else {
               console.log(
                 "\nStopped with local changes ready. No verification, commit, or publication was performed.",

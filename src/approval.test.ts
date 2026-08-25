@@ -5,6 +5,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseBuildChoice,
+  parseCommitChoice,
+  parsePullRequestChoice,
+  parsePushChoice,
   parseReviewChoice,
   parseVerificationChoice,
   preserveApprovedSpecification,
@@ -16,6 +19,17 @@ describe("parseReviewChoice", () => {
     expect(parseReviewChoice("M")).toBe("modify");
     expect(parseReviewChoice(" reject ")).toBe("reject");
     expect(parseReviewChoice("maybe")).toBeUndefined();
+  });
+});
+
+describe("publication choices", () => {
+  it("keeps commit, push, and pull request approvals separate", () => {
+    expect(parseCommitChoice("commit")).toBe("commit");
+    expect(parseCommitChoice("push")).toBeUndefined();
+    expect(parsePushChoice("push")).toBe("push");
+    expect(parsePushChoice("commit")).toBeUndefined();
+    expect(parsePullRequestChoice("pr")).toBe("pull-request");
+    expect(parsePullRequestChoice("push")).toBeUndefined();
   });
 });
 

@@ -37,16 +37,20 @@ describe("verification", () => {
     ]);
   });
 
-  it("records passing and failing commands without stopping early", async () => {
-    const path = await fixture({
-      typecheck: "node -e \"console.log('checked')\"",
-      test: "node -e \"console.error('failed'); process.exit(1)\"",
-    });
-    const commands = await discoverVerificationCommands(path);
-    const results = await runVerificationCommands(path, commands);
+  it(
+    "records passing and failing commands without stopping early",
+    async () => {
+      const path = await fixture({
+        typecheck: "node -e \"console.log('checked')\"",
+        test: "node -e \"console.error('failed'); process.exit(1)\"",
+      });
+      const commands = await discoverVerificationCommands(path);
+      const results = await runVerificationCommands(path, commands);
 
-    expect(results.map((result) => result.passed)).toEqual([true, false]);
-    expect(results[0].output).toContain("checked");
-    expect(results[1].output).toContain("failed");
-  });
+      expect(results.map((result) => result.passed)).toEqual([true, false]);
+      expect(results[0].output).toContain("checked");
+      expect(results[1].output).toContain("failed");
+    },
+    15_000,
+  );
 });

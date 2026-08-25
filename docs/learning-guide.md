@@ -9,6 +9,7 @@
 - `src/execute.ts` safely asks Codex to make the approved local changes.
 - `src/verify.ts` previews and runs known repository checks after approval.
 - `src/review.ts` explains the diff, test evidence, and acceptance status.
+- `src/publication.ts` commits and publishes only after separate approvals.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -56,6 +57,13 @@ Product-to-PR shows the exact repository commands it can run and waits for a
 separate verification choice. It records every pass or failure, compares the
 local diff with the acceptance criteria, and explains what needs human review
 before offering any commit or publication action.
+
+### Commit and publication
+
+After successful verification, Product-to-PR proposes a Conventional Commit
+message. Committing, pushing, and opening a pull request each require a new
+choice. The pull request carries the product outcome, changed files, acceptance
+evidence, and verification results so reviewers can trace why the change exists.
 
 ## First exercise
 

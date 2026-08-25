@@ -2,7 +2,9 @@
 
 Product-to-PR helps a product contributor turn a plain-language feature request and an existing codebase into a structured, reviewable implementation plan.
 
-Version 1 is intentionally small. It uses Codex in read-only mode for product reasoning, does not change product code, and does not create pull requests. Saving an approved specification or creating an implementation branch requires explicit user approval.
+Product-to-PR guides a user from product intent to a verified, reviewable pull
+request. It keeps specification approval, implementation, verification,
+committing, pushing, and pull-request creation as separate decisions.
 
 ## What it produces
 
@@ -12,6 +14,9 @@ Version 1 is intentionally small. It uses Codex in read-only mode for product re
 - Implementation steps
 - Risks
 - Test plan
+- Approved local implementation on an isolated branch
+- Verification and acceptance evidence
+- Reviewable commits and pull requests after separate approval
 
 ## Run it
 

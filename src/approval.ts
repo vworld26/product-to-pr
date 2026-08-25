@@ -4,6 +4,9 @@ import { join } from "node:path";
 export type ReviewChoice = "approve" | "modify" | "reject";
 export type BuildChoice = "build" | "stop";
 export type VerificationChoice = "verify" | "stop";
+export type CommitChoice = "commit" | "stop";
+export type PushChoice = "push" | "stop";
+export type PullRequestChoice = "pull-request" | "stop";
 
 export function parseReviewChoice(input: string): ReviewChoice | undefined {
   const choice = input.trim().toLowerCase();
@@ -50,6 +53,31 @@ export function parseVerificationChoice(
   if (choice === "s" || choice === "stop" || choice === "later") {
     return "stop";
   }
+  return undefined;
+}
+
+export function parseCommitChoice(input: string): CommitChoice | undefined {
+  const choice = input.trim().toLowerCase();
+  if (choice === "c" || choice === "commit") return "commit";
+  if (choice === "s" || choice === "stop" || choice === "later") return "stop";
+  return undefined;
+}
+
+export function parsePushChoice(input: string): PushChoice | undefined {
+  const choice = input.trim().toLowerCase();
+  if (choice === "p" || choice === "push") return "push";
+  if (choice === "s" || choice === "stop" || choice === "later") return "stop";
+  return undefined;
+}
+
+export function parsePullRequestChoice(
+  input: string,
+): PullRequestChoice | undefined {
+  const choice = input.trim().toLowerCase();
+  if (choice === "p" || choice === "pr" || choice === "pull request") {
+    return "pull-request";
+  }
+  if (choice === "s" || choice === "stop" || choice === "later") return "stop";
   return undefined;
 }
 
