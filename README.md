@@ -44,6 +44,17 @@ npm run typecheck
 npm test
 ```
 
+## Supported repositories
+
+Product-to-PR inspects Node repositories with `package.json` and mixed-language
+repositories containing JavaScript, TypeScript, Python, Ruby, Shell, Markdown,
+or `SKILL.md` files. It can infer skill entry points and config-backed pytest
+commands without requiring npm.
+
+When no safe automated verification command is configured, Product-to-PR says
+so explicitly and does not offer to commit. It never guesses that an arbitrary
+Shell script is safe to execute.
+
 ## Collaboration levels
 
 - **Guide me** — Explain each stage and ask before implementation and verification.

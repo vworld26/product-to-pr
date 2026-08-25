@@ -22,11 +22,15 @@ const ignoredDirectories = new Set([
 const searchableExtensions = new Set([
   ".css",
   ".html",
+  ".ini",
   ".js",
   ".jsx",
   ".json",
   ".md",
+  ".py",
   ".rb",
+  ".sh",
+  ".toml",
   ".ts",
   ".tsx",
 ]);
@@ -133,35 +137,49 @@ export async function discoverRelevantFiles(
   };
 }
 
-async function readPackageJson(repositoryPath: string): Promise<PackageJson> {
+async function readPackageJson(
+  repositoryPath: string,
+): Promise<PackageJson | undefined> {
   const packagePath = join(repositoryPath, "package.json");
 
   try {
     return JSON.parse(await readFile(packagePath, "utf8")) as PackageJson;
-  } catch {
-    throw new Error(`No readable package.json found in ${repositoryPath}.`);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw new Error(`The package.json in ${repositoryPath} is not readable.`);
   }
 }
 
 async function readPurpose(
   repositoryPath: string,
-  packageJson: PackageJson,
+  packageJson: PackageJson | undefined,
+  searchablePaths: string[],
 ): Promise<string> {
-  if (packageJson.description) {
+  if (packageJson?.description) {
     return packageJson.description;
   }
 
-  try {
-    const readme = await readFile(join(repositoryPath, "README.md"), "utf8");
-    const paragraph = readme
+  async function readDocumentPurpose(path: string): Promise<string | undefined> {
+    try {
+      const content = await readFile(join(repositoryPath, path), "utf8");
+      return content
       .split(/\n\s*\n/)
       .map((value) => value.trim())
-      .find((value) => value && !value.startsWith("#"));
-
-    return paragraph ?? "Purpose not documented.";
-  } catch {
-    return "Purpose not documented.";
+      .find(
+        (value) => value && !value.startsWith("#") && !value.startsWith("---"),
+      );
+    } catch {
+      return undefined;
+    }
   }
+
+  const readmePurpose = await readDocumentPurpose("README.md");
+  if (readmePurpose) return readmePurpose;
+
+  const skillPath = searchablePaths.find((path) => path.endsWith("SKILL.md"));
+  if (!skillPath) return "Purpose not documented.";
+  return await readDocumentPurpose(skillPath) ??
+    `Skill repository defined by ${skillPath}.`;
 }
 
 function findEntryPoints(scripts: Record<string, string>): string[] {
@@ -177,22 +195,62 @@ function findEntryPoints(scripts: Record<string, string>): string[] {
     : ["No entry point identified from package scripts."];
 }
 
+function inferTechnologies(paths: string[]): string[] {
+  const extensionTechnologies = new Map([
+    [".js", "JavaScript"],
+    [".jsx", "JavaScript"],
+    [".py", "Python"],
+    [".rb", "Ruby"],
+    [".sh", "Shell"],
+    [".ts", "TypeScript"],
+    [".tsx", "TypeScript"],
+  ]);
+  return paths
+    .map((path) => extensionTechnologies.get(extname(path)))
+    .filter((value): value is string => Boolean(value))
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function inferEntryPoints(paths: string[]): string[] {
+  const skillFiles = paths.filter((path) => path.endsWith("SKILL.md"));
+  const scriptFiles = paths.filter(
+    (path) => path.includes("scripts/") && [".js", ".py", ".sh"].includes(extname(path)),
+  );
+  const entryPoints = [...skillFiles, ...scriptFiles].slice(0, 6);
+  return entryPoints.length > 0
+    ? entryPoints
+    : ["No likely entry point identified from repository files."];
+}
+
+async function inferTestApproach(
+  repositoryPath: string,
+  paths: string[],
+): Promise<string[]> {
+  if (paths.includes("pytest.ini")) return ["pytest: python -m pytest"];
+  if (paths.includes("pyproject.toml")) {
+    const content = await readFile(join(repositoryPath, "pyproject.toml"), "utf8");
+    if (content.includes("[tool.pytest")) return ["pytest: python -m pytest"];
+  }
+  return ["No safe automated verification command discovered."];
+}
+
 export async function inspectRepository(
   repositoryPath: string,
   featureRequest: string,
 ): Promise<RepositoryOverview> {
   const packageJson = await readPackageJson(repositoryPath);
   const entries = await readdir(repositoryPath, { withFileTypes: true });
-  const scripts = packageJson.scripts ?? {};
+  const scripts = packageJson?.scripts ?? {};
   const packages = {
-    ...packageJson.dependencies,
-    ...packageJson.devDependencies,
+    ...packageJson?.dependencies,
+    ...packageJson?.devDependencies,
   };
-
-  const technologies = [
-    "Node.js",
-    ...Object.keys(packages),
-  ].filter((value, index, values) => values.indexOf(value) === index);
+  const searchablePaths = await listSearchableFiles(repositoryPath);
+  const technologies = packageJson
+    ? ["Node.js", ...Object.keys(packages)]
+      .filter((value, index, values) => values.indexOf(value) === index)
+    : inferTechnologies(searchablePaths);
 
   const testScripts = Object.entries(scripts)
     .filter(([name]) => name.includes("test"))
@@ -203,15 +261,21 @@ export async function inspectRepository(
   );
 
   return {
-    purpose: await readPurpose(repositoryPath, packageJson),
+    purpose: await readPurpose(repositoryPath, packageJson, searchablePaths),
     technologies,
     structure: entries
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
       .filter((entry) => entry.name !== "node_modules" && entry.name !== "dist")
       .map((entry) => `${entry.name}/`),
-    entryPoints: findEntryPoints(scripts),
+    entryPoints: packageJson
+      ? findEntryPoints(scripts)
+      : inferEntryPoints(searchablePaths),
     testApproach:
-      testScripts.length > 0 ? testScripts : ["No test script identified."],
+      testScripts.length > 0
+        ? testScripts
+        : packageJson
+        ? ["No test script identified."]
+        : await inferTestApproach(repositoryPath, searchablePaths),
     instructionContext: await discoverRepositoryInstructions(
       repositoryPath,
       relevantFileSearch.files.map((file) => file.path),

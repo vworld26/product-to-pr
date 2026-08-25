@@ -53,4 +53,36 @@ describe("verification", () => {
     },
     15_000,
   );
+
+  it("returns a safe empty state when no configured checks exist", async () => {
+    const path = await mkdtemp(join(tmpdir(), "product-to-pr-verify-empty-"));
+    directories.push(path);
+    await expect(discoverVerificationCommands(path)).resolves.toEqual([]);
+  });
+
+  it("discovers config-backed Python tests without guessing shell scripts", async () => {
+    const path = await mkdtemp(join(tmpdir(), "product-to-pr-verify-python-"));
+    directories.push(path);
+    await writeFile(join(path, "pyproject.toml"), "[tool.pytest.ini_options]\n");
+    await writeFile(join(path, "check.sh"), "#!/bin/sh\nexit 0\n");
+
+    await expect(discoverVerificationCommands(path)).resolves.toEqual([
+      {
+        name: "test",
+        command: "python -m pytest",
+        executable: "python",
+        args: ["-m", "pytest"],
+      },
+    ]);
+  });
+
+  it("recognizes pytest.ini as an explicit Python test configuration", async () => {
+    const path = await mkdtemp(join(tmpdir(), "product-to-pr-verify-pytest-"));
+    directories.push(path);
+    await writeFile(join(path, "pytest.ini"), "[pytest]\n");
+
+    await expect(discoverVerificationCommands(path)).resolves.toEqual([
+      expect.objectContaining({ command: "python -m pytest" }),
+    ]);
+  });
 });

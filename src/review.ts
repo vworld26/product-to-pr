@@ -243,9 +243,11 @@ export function formatLocalReview(review: LocalReview): string {
     "## Diff summary",
     review.diffSummary || "No tracked diff summary is available.",
     "## Verification",
-    ...review.verification.map(
-      (result) => `- ${result.passed ? "PASS" : "FAIL"}: ${result.command}`,
-    ),
+    ...(review.verification.length > 0
+      ? review.verification.map(
+        (result) => `- ${result.passed ? "PASS" : "FAIL"}: ${result.command}`,
+      )
+      : ["- No safe automated verification commands were discovered."]),
     "## Acceptance criteria",
     ...review.acceptance.map(
       (result) => `- ${result.status.toUpperCase()}: ${result.criterion} — ${result.evidence}`,

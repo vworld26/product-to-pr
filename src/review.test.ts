@@ -51,4 +51,19 @@ describe("local review", () => {
       await rm(repositoryPath, { recursive: true, force: true });
     }
   });
+
+  it("explains when no safe automated verification was discovered", () => {
+    const output = formatLocalReview({
+      changedFiles: [],
+      changeDigest: "empty",
+      diffSummary: "",
+      verification: [],
+      acceptance: [],
+      recoveryGuidance: [],
+    });
+
+    expect(output).toContain(
+      "No safe automated verification commands were discovered.",
+    );
+  });
 });
