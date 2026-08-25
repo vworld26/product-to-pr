@@ -41,7 +41,7 @@ describe("createProductPlan", () => {
     expect(plan.dependencies.length).toBeGreaterThan(0);
     expect(plan.acceptanceCriteria.length).toBeGreaterThan(0);
     expect(plan.acceptanceCriteria).toContain(
-      "The completed product supports this outcome: Export a project plan as Markdown.",
+      "A user can successfully: Export a project plan as Markdown.",
     );
     expect(plan.implementationSteps).toContain(
       "Update src/plan.ts: Defines the product plan.",

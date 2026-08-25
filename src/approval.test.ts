@@ -5,7 +5,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseBuildChoice,
+  parseCommitChoice,
+  parsePullRequestChoice,
+  parsePushChoice,
   parseReviewChoice,
+  parseVerificationChoice,
   preserveApprovedSpecification,
 } from "./approval.js";
 
@@ -18,6 +22,17 @@ describe("parseReviewChoice", () => {
   });
 });
 
+describe("publication choices", () => {
+  it("keeps commit, push, and pull request approvals separate", () => {
+    expect(parseCommitChoice("commit")).toBe("commit");
+    expect(parseCommitChoice("push")).toBeUndefined();
+    expect(parsePushChoice("push")).toBe("push");
+    expect(parsePushChoice("commit")).toBeUndefined();
+    expect(parsePullRequestChoice("pr")).toBe("pull-request");
+    expect(parsePullRequestChoice("push")).toBeUndefined();
+  });
+});
+
 describe("parseBuildChoice", () => {
   it("keeps implementation approval separate from specification approval", () => {
     expect(parseBuildChoice("build")).toBe("build");
@@ -25,6 +40,15 @@ describe("parseBuildChoice", () => {
     expect(parseBuildChoice("not now")).toBe("stop");
     expect(parseBuildChoice("later")).toBe("stop");
     expect(parseBuildChoice("approve")).toBeUndefined();
+  });
+});
+
+describe("parseVerificationChoice", () => {
+  it("keeps verification approval separate from implementation approval", () => {
+    expect(parseVerificationChoice("verify")).toBe("verify");
+    expect(parseVerificationChoice("V")).toBe("verify");
+    expect(parseVerificationChoice("later")).toBe("stop");
+    expect(parseVerificationChoice("build")).toBeUndefined();
   });
 });
 

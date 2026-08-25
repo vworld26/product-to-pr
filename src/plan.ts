@@ -69,40 +69,40 @@ export function createProductPlan(
     .map((file) => file.path);
 
   const fallbackReasoning: ProductReasoning = {
-    summary: `Enable the requested outcome: ${request}`,
+    summary: `Make this request possible: ${request}`,
     clarifyingQuestions: [
-      `What should the user see or be able to do when "${request}" is complete?`,
-      "What rules, defaults, or user choices should control this behavior?",
+      `What should someone see or be able to do when "${request}" is finished?`,
+      "What choices or rules should guide how this works?",
     ],
     productDecisions: [],
     dependencies: [
-      "Confirm which existing interfaces, services, and data this feature relies on.",
-      "Identify any external packages, APIs, or permissions required.",
-      "Verify that prerequisite product decisions are resolved before implementation.",
+      "Find out which existing screens, tools, and information this change needs.",
+      "Check whether any outside tools or permissions are needed.",
+      "Answer the important product questions before starting the work.",
     ],
     acceptanceCriteria: [
-      `The completed product supports this outcome: ${request}.`,
-      "The feature handles invalid or incomplete input clearly.",
-      "Existing behavior continues to work.",
+      `A user can successfully: ${request}.`,
+      "The product clearly explains invalid or missing information.",
+      "Everything that worked before still works.",
     ],
     implementationSteps: [
-      "Confirm the unanswered product and technical questions.",
+      "Answer the remaining product and technical questions.",
       ...implementationSteps,
-      "Implement the smallest complete user journey.",
-      "Add automated tests for the new behavior and important failure cases.",
-      "Review the final change against every acceptance criterion.",
+      "Build the simplest complete version of the user experience.",
+      "Add automated tests for the new behavior and key problems.",
+      "Check the finished work against every acceptance criterion.",
     ],
     risks: [
-      "The request may hide unresolved product assumptions.",
-      "The implementation may affect behavior outside the intended scope.",
-      "Success may be difficult to verify without a measurable outcome.",
+      "Some important product choices may still be unclear.",
+      "The change may affect other parts of the product.",
+      "It may be hard to confirm success without a clear result to measure.",
     ],
     testPlan: [
-      "Test the primary successful user journey.",
-      "Test invalid, empty, and boundary inputs.",
+      "Test the main way a user completes the task successfully.",
+      "Test invalid, missing, and unusual information.",
       ...testFiles.map((path) => `Update and run ${path}.`),
-      "Run the existing automated test suite.",
-      "Manually confirm each acceptance criterion.",
+      "Run all existing automated tests.",
+      "Check each acceptance criterion by hand.",
     ],
   };
   const productReasoning = reasoning ?? fallbackReasoning;
