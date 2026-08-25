@@ -41,8 +41,23 @@ import {
   openPullRequest,
   proposeCommitMessage,
   pushImplementationBranch,
+  requestPullRequestReview,
 } from "./publication.js";
+import {
+  parseReviewOwner,
+  reviewOwnerDescriptions,
+  type ReviewHandoff,
+  type ReviewOwner,
+} from "./handoff.js";
 import { reasonAboutFeature } from "./reason.js";
+import {
+  deleteManagedWorkspace,
+  parseGitHubRepositoryUrl,
+  parseWorkspaceChoice,
+  prepareRepository,
+  type PreparedRepository,
+  type WorkspaceChoice,
+} from "./repository.js";
 import { createLocalReview, formatLocalReview } from "./review.js";
 import { discoverVerificationCommands, runVerificationCommands } from "./verify.js";
 
@@ -73,16 +88,56 @@ async function saveRequestedOutput(
 }
 
 try {
-  const { repositoryPath, featureRequest, outputPath, modeOverride } =
+  const { repositoryPath: repositoryInput, featureRequest, outputPath, modeOverride } =
     parseCliArguments(process.argv.slice(2));
 
-  if (!repositoryPath) {
-    throw new Error("A repository folder is required.");
+  if (!repositoryInput) {
+    throw new Error("A repository folder or GitHub URL is required.");
   }
 
   if (!featureRequest.trim()) {
     throw new Error("A feature request is required.");
   }
+
+  const interactive = process.stdin.isTTY && process.stdout.isTTY;
+  if (parseGitHubRepositoryUrl(repositoryInput) && !interactive) {
+    throw new Error(
+      "GitHub URLs require an interactive run so you can approve the temporary working folder. A local repository path still works non-interactively.",
+    );
+  }
+
+  let preparedRepository: PreparedRepository;
+  if (parseGitHubRepositoryUrl(repositoryInput)) {
+    const setupTerminal = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    try {
+      preparedRepository = await prepareRepository(
+        repositoryInput,
+        async (repository) => {
+          console.log(
+            `\n${repository.nameWithOwner} is a ${repository.isPrivate ? "private" : "public"} GitHub repository.`,
+          );
+          console.log(
+            "Product-to-PR needs a temporary working folder on this computer so it can inspect and safely change files. This does not change GitHub, and publishing still requires separate approvals.",
+          );
+          const answer = await setupTerminal.question(
+            "Create the temporary working folder? [Y/N]\n> ",
+          );
+          return ["y", "yes"].includes(answer.trim().toLowerCase());
+        },
+      );
+    } finally {
+      setupTerminal.close();
+    }
+    console.log(
+      `\nTemporary working folder created: ${preparedRepository.repositoryPath}`,
+    );
+  } else {
+    preparedRepository = await prepareRepository(repositoryInput, async () => false);
+  }
+  const repositoryPath = preparedRepository.repositoryPath;
 
   const repositoryOverview = await inspectRepository(
     repositoryPath,
@@ -93,8 +148,6 @@ try {
     featureRequest,
     repositoryOverview,
   );
-  const interactive = process.stdin.isTTY && process.stdout.isTTY;
-
   if (interactive) {
     const terminal = createInterface({
       input: process.stdin,
@@ -339,8 +392,43 @@ try {
                       if (!pullRequestChoice) console.log("Please enter pull request or stop.");
                     }
                     if (pullRequestChoice === "pull-request") {
-                      const url = await openPullRequest(repositoryPath, plan, review);
+                      console.log("\nWho will own the pull-request review?");
+                      console.log(`[I] ${reviewOwnerDescriptions.operator}`);
+                      console.log(`[H] ${reviewOwnerDescriptions.maintainer}`);
+                      let reviewOwner: ReviewOwner | undefined;
+                      while (!reviewOwner) {
+                        reviewOwner = parseReviewOwner(
+                          await terminal.question("> "),
+                        );
+                        if (!reviewOwner) console.log("Please enter I or H.");
+                      }
+                      const handoff: ReviewHandoff = { owner: reviewOwner };
+                      if (reviewOwner === "maintainer") {
+                        const reviewer = (
+                          await terminal.question(
+                            "GitHub username or team to request (optional; press Enter to skip):\n> ",
+                          )
+                        ).trim();
+                        if (reviewer) handoff.reviewer = reviewer;
+                      }
+                      const url = await openPullRequest(
+                        repositoryPath,
+                        plan,
+                        review,
+                        handoff,
+                      );
                       console.log(`\nPull request opened: ${url}`);
+                      if (handoff.reviewer) {
+                        await requestPullRequestReview(
+                          repositoryPath,
+                          url,
+                          handoff.reviewer,
+                        );
+                        console.log(`Review requested from ${handoff.reviewer}.`);
+                      }
+                      console.log(
+                        "Product-to-PR has stopped before merge. The repository maintainer must review the pull request and make the separate merge decision.",
+                      );
                     }
                   }
                 }
@@ -383,6 +471,24 @@ try {
         );
       }
     } finally {
+      if (preparedRepository.source === "github") {
+        let workspaceChoice: WorkspaceChoice | undefined;
+        console.log(
+          `\nTemporary working folder: ${preparedRepository.repositoryPath}`,
+        );
+        while (!workspaceChoice) {
+          workspaceChoice = parseWorkspaceChoice(
+            await terminal.question("Choose [K]eep or [D]elete this folder:\n> "),
+          );
+          if (!workspaceChoice) console.log("Please enter keep or delete.");
+        }
+        if (workspaceChoice === "delete") {
+          await deleteManagedWorkspace(preparedRepository);
+          console.log("Temporary working folder deleted.");
+        } else {
+          console.log("Temporary working folder kept for later use.");
+        }
+      }
       terminal.close();
     }
   } else {

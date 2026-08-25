@@ -61,6 +61,8 @@ request that gives reviewers the context they need.
 
 Current capabilities:
 
+- accept either an existing local repository path or an approved managed
+  working folder created from a public or accessible private GitHub URL;
 - propose a Conventional Commit message derived from the observable change;
 - create a commit only after the user reviews the diff and approves committing;
 - push only the approved branch and open a pull request only after separate
@@ -72,6 +74,8 @@ Current capabilities:
   history.
 - repository-persisted Guide me, Build with me, and Take the lead modes that
   adjust routine pauses and explanation while preserving publication approvals.
+- record whether the operator or another repository maintainer owns review,
+  optionally request that reviewer, and always stop before merge.
 
 Exit evidence:
 

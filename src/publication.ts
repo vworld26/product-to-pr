@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import type { ProductPlan } from "./plan.js";
+import { formatReviewHandoff, type ReviewHandoff } from "./handoff.js";
 import { readLocalChangeEvidence, type LocalReview } from "./review.js";
 
 const execFileAsync = promisify(execFile);
@@ -76,6 +77,7 @@ export async function pushImplementationBranch(
 export function buildPullRequestBody(
   plan: ProductPlan,
   review: LocalReview,
+  handoff?: ReviewHandoff,
 ): string {
   return [
     "## Product outcome",
@@ -93,6 +95,9 @@ export function buildPullRequestBody(
     "## Safety",
     "- Implementation was performed on an isolated branch.",
     "- The approved specification and implementation package were preserved.",
+    ...(handoff
+      ? ["## Review handoff", ...formatReviewHandoff(handoff)]
+      : []),
   ].join("\n\n");
 }
 
@@ -108,6 +113,7 @@ export async function openPullRequest(
   repositoryPath: string,
   plan: ProductPlan,
   review: LocalReview,
+  handoff?: ReviewHandoff,
   runner: PullRequestRunner = runGitHub,
 ): Promise<string> {
   const branch = await git(repositoryPath, ["branch", "--show-current"]);
@@ -115,12 +121,30 @@ export async function openPullRequest(
   try {
     return await runner(repositoryPath, [
       "pr", "create", "--base", "main", "--head", branch,
-      "--title", plan.title, "--body", buildPullRequestBody(plan, review),
+      "--title", plan.title, "--body", buildPullRequestBody(plan, review, handoff),
     ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown GitHub error.";
     throw new Error(
       `Pull request creation failed. Check \`gh auth status\`, then retry. ${message}`,
+    );
+  }
+}
+
+export async function requestPullRequestReview(
+  repositoryPath: string,
+  pullRequestUrl: string,
+  reviewer: string,
+  runner: PullRequestRunner = runGitHub,
+): Promise<void> {
+  try {
+    await runner(repositoryPath, [
+      "pr", "edit", pullRequestUrl, "--add-reviewer", reviewer,
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown GitHub error.";
+    throw new Error(
+      `The pull request was opened, but requesting review from ${reviewer} failed. Add the reviewer in GitHub or retry. ${message}`,
     );
   }
 }

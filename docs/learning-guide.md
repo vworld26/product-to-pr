@@ -10,6 +10,8 @@
 - `src/verify.ts` previews and runs known repository checks after approval.
 - `src/review.ts` explains the diff, test evidence, and acceptance status.
 - `src/publication.ts` commits and publishes only after separate approvals.
+- `src/repository.ts` prepares an approved temporary folder for a GitHub URL.
+- `src/handoff.ts` records who is responsible for pull-request review.
 - `src/mode.ts` stores how much routine guidance the user wants.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
@@ -65,6 +67,21 @@ After successful verification, Product-to-PR proposes a Conventional Commit
 message. Committing, pushing, and opening a pull request each require a new
 choice. The pull request carries the product outcome, changed files, acceptance
 evidence, and verification results so reviewers can trace why the change exists.
+
+The person operating Product-to-PR may also be the repository maintainer, or
+may hand the pull request to a different maintainer. The tool records that
+choice, can request a named GitHub reviewer, and stops before merge in either
+case. Opening a pull request proposes work; merging accepts it into the main
+codebase, so those remain separate decisions.
+
+### Local paths and GitHub URLs
+
+A local repository path lets Product-to-PR work directly in an existing folder.
+A GitHub URL first needs a local working copy because code inspection, branches,
+edits, and tests operate on files. Product-to-PR calls this a temporary working
+folder, shows its location, and asks before creating it. Private repositories
+use the operator's existing GitHub CLI authentication. The folder is kept unless
+the operator explicitly chooses to delete it at the end.
 
 ### Graduated autonomy
 
