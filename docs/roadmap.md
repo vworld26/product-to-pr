@@ -31,8 +31,10 @@ Current capabilities include:
 - preservation of approved specifications without overwriting existing files;
 - inline display of the complete approved specification after it is saved;
 - explicit output-file handling with safe failure behavior;
-- creation of an isolated implementation branch after separate approval; and
-- automated pull-request checks for type checking and tests.
+- creation of an isolated implementation branch after separate approval;
+- automated pull-request checks for type checking and tests; and
+- trusted, candidate, and unavailable verification classification with
+  confidence and safe command-declaration guidance.
 
 ## Available: approved plan to verified local change
 

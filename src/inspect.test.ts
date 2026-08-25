@@ -103,8 +103,12 @@ describe("discoverRelevantFiles", () => {
         "venture-evaluation/scripts/review.sh",
       ]),
     );
-    expect(overview.testApproach).toEqual([
-      "Possible check scripts were found (venture-evaluation/scripts/check.py), but no repository configuration marks a command as safe to run automatically.",
-    ]);
+    expect(overview.testApproach).toEqual(
+      expect.arrayContaining([
+        "Possible but not trusted: python venture-evaluation/scripts/check.py",
+        expect.stringContaining("Verification confidence: medium"),
+        expect.stringContaining("will not run until"),
+      ]),
+    );
   });
 });

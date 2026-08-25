@@ -73,6 +73,19 @@ so explicitly and does not offer to commit. When possible check scripts exist
 but are not configured as trusted commands, it reports that distinction. It
 never guesses that an arbitrary Shell script is safe to execute.
 
+Repositories can explicitly trust a supported command by adding a line to
+`AGENTS.md` or `SKILL.md`, for example:
+
+```text
+Product-to-PR verification: npm test
+```
+
+Supported declarations are deliberately narrow: `npm test`, `npm run <script>`,
+and `python -m pytest` (including `python3`). Shell operators and arbitrary
+commands are rejected. Product-to-PR shows high, medium, or low verification
+confidence based on the automated evidence available and calls out checks that
+still require manual review.
+
 ## Collaboration levels
 
 - **Guide me** — Explain each stage and ask before implementation and verification.
