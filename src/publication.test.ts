@@ -6,11 +6,13 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
 import type { ProductPlan } from "./plan.js";
+import type { ReviewHandoff } from "./handoff.js";
 import {
   buildPullRequestBody,
   commitReviewedChanges,
   openPullRequest,
   proposeCommitMessage,
+  requestPullRequestReview,
 } from "./publication.js";
 import type { LocalReview } from "./review.js";
 import { readLocalChangeEvidence } from "./review.js";
@@ -27,6 +29,10 @@ const review: LocalReview = {
   verification: [{ name: "test", command: "npm test", executable: "npm", args: ["test"], passed: true, output: "passed" }],
   acceptance: [{ criterion: "Confidence is visible.", status: "passed", evidence: "Covered by tests." }],
   recoveryGuidance: [],
+};
+const handoff: ReviewHandoff = {
+  owner: "maintainer",
+  reviewer: "@reviewer",
 };
 
 describe("publication", () => {
@@ -71,20 +77,43 @@ describe("publication", () => {
       await execFileAsync("git", ["-C", repositoryPath, "init"]);
       await execFileAsync("git", ["-C", repositoryPath, "switch", "-c", "product-to-pr/example"]);
       let args: string[] = [];
-      const url = await openPullRequest(repositoryPath, plan, review, async (_path, received) => {
+      const url = await openPullRequest(repositoryPath, plan, review, handoff, async (_path, received) => {
         args = received;
         return "https://example.test/pull/1";
       });
-      const body = buildPullRequestBody(plan, review);
+      const body = buildPullRequestBody(plan, review, handoff);
 
       expect(body).toContain("Confidence is visible.");
       expect(body).toContain("npm test");
+      expect(body).toContain("Another repository maintainer (@reviewer)");
       expect(url).toBe("https://example.test/pull/1");
       expect(args).toContain("create");
       expect(args).toContain("product-to-pr/example");
     } finally {
       await rm(repositoryPath, { recursive: true, force: true });
     }
+  });
+
+  it("can request a reviewer without gaining merge authority", async () => {
+    let args: string[] = [];
+    await requestPullRequestReview(
+      "/tmp/example",
+      "https://example.test/pull/1",
+      "reviewer",
+      async (_path, received) => {
+        args = received;
+        return "";
+      },
+    );
+
+    expect(args).toEqual([
+      "pr",
+      "edit",
+      "https://example.test/pull/1",
+      "--add-reviewer",
+      "reviewer",
+    ]);
+    expect(args).not.toContain("merge");
   });
 
   it("refuses to commit files that changed after review", async () => {

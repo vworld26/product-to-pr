@@ -25,6 +25,17 @@ npm install
 npm run dev -- . "Add a way to export a project plan as Markdown"
 ```
 
+You can also start from a GitHub repository URL:
+
+```bash
+npm run dev -- https://github.com/owner/repository "Add a greeting command"
+```
+
+For a GitHub URL, Product-to-PR uses your existing `gh` authentication and
+explains before creating an isolated temporary working folder. This supports
+public repositories and private repositories you can access. At the end, you
+choose whether to keep or delete that folder; it is never silently deleted.
+
 Choose a collaboration level for one run:
 
 ```bash
@@ -63,6 +74,11 @@ Shell script is safe to execute.
 
 Commit, push, pull-request, merge, deletion, and material scope decisions remain
 separately controlled in every level.
+
+Before opening a pull request, Product-to-PR asks whether the operator is also
+the repository maintainer or is handing review to another maintainer. It can
+request an optional GitHub reviewer, then stops. Reviewing and merging remain
+separate maintainer decisions in both situations.
 
 ## Learning milestones
 
