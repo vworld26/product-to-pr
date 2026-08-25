@@ -81,6 +81,19 @@ The product asks about this after specification approval, when the user has
 enough context to understand what they are authorizing. A saved repository
 preference can be overridden for one run, and `--mode choose` reopens the choice.
 
+### Mixed-language inspection
+
+Repository metadata is evidence, not a requirement. A Node repository can
+describe itself through `package.json`; a skill repository may use `SKILL.md`;
+and other repositories can be understood from their file types and structure.
+Product-to-PR searches JavaScript, TypeScript, Python, Ruby, Shell, Markdown,
+and common configuration files without pretending every repository uses npm.
+
+Verification remains conservative. Recognized npm scripts and config-backed
+pytest commands may be offered, but arbitrary Shell files are never executed
+just because their names sound like checks. If no safe command is found, the
+product reports that limitation and blocks publication.
+
 ## First exercise
 
 Add a `Dependencies` section to `ProductPlan`, populate it in `createProductPlan`, render it in `formatPlan`, and update the test. Make the work on a new Git branch.

@@ -18,9 +18,44 @@ const verificationScripts = ["typecheck", "lint", "test", "build"];
 export async function discoverVerificationCommands(
   repositoryPath: string,
 ): Promise<VerificationCommand[]> {
-  const packageJson = JSON.parse(
-    await readFile(`${repositoryPath}/package.json`, "utf8"),
-  ) as { scripts?: Record<string, string> };
+  let packageJson: { scripts?: Record<string, string> } | undefined;
+  try {
+    packageJson = JSON.parse(
+      await readFile(`${repositoryPath}/package.json`, "utf8"),
+    ) as { scripts?: Record<string, string> };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  if (!packageJson) {
+    try {
+      const pyproject = await readFile(`${repositoryPath}/pyproject.toml`, "utf8");
+      return pyproject.includes("[tool.pytest")
+        ? [{
+          name: "test",
+          command: "python -m pytest",
+          executable: "python",
+          args: ["-m", "pytest"],
+        }]
+        : [];
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        try {
+          await readFile(`${repositoryPath}/pytest.ini`, "utf8");
+          return [{
+            name: "test",
+            command: "python -m pytest",
+            executable: "python",
+            args: ["-m", "pytest"],
+          }];
+        } catch (pytestError) {
+          if ((pytestError as NodeJS.ErrnoException).code === "ENOENT") return [];
+          throw pytestError;
+        }
+      }
+      throw error;
+    }
+  }
   const scripts = packageJson.scripts ?? {};
 
   return verificationScripts

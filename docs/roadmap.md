@@ -18,7 +18,8 @@ structured plan grounded in an existing repository.
 
 Current capabilities include:
 
-- repository structure, entry-point, test, and relevant-file inspection;
+- Node and mixed-language repository structure, entry-point, test, and
+  relevant-file inspection without requiring `package.json`;
 - discovery and reporting of root and nested `AGENTS.md` instructions;
 - Codex-assisted product reasoning with explicit clarifying questions;
 - acceptance criteria, dependencies, implementation steps, risks, and test plans;

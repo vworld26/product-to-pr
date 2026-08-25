@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { discoverRelevantFiles } from "./inspect.js";
+import { discoverRelevantFiles, inspectRepository } from "./inspect.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -65,5 +65,46 @@ describe("discoverRelevantFiles", () => {
     await expect(
       discoverRelevantFiles(missingPath, "Export a plan as Markdown"),
     ).rejects.toThrow(`Repository path does not exist: ${missingPath}.`);
+  });
+
+  it("inspects a mixed-language skill repository without package.json", async () => {
+    const repositoryPath = await createTemporaryDirectory();
+    await mkdir(join(repositoryPath, "venture-evaluation", "scripts"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(repositoryPath, "venture-evaluation", "SKILL.md"),
+      "# Venture evaluation\n\nEvaluate business opportunities with evidence.\n",
+    );
+    await writeFile(
+      join(repositoryPath, "venture-evaluation", "scripts", "evaluate.js"),
+      "export function evaluateOpportunity() {}\n",
+    );
+    await writeFile(
+      join(repositoryPath, "venture-evaluation", "scripts", "check.py"),
+      "def check_opportunity(): pass\n",
+    );
+    await writeFile(
+      join(repositoryPath, "venture-evaluation", "scripts", "review.sh"),
+      "#!/bin/sh\n# review opportunity\n",
+    );
+
+    const overview = await inspectRepository(
+      repositoryPath,
+      "Improve opportunity review",
+    );
+
+    expect(overview.purpose).toContain("Evaluate business opportunities");
+    expect(overview.technologies).toEqual(["JavaScript", "Python", "Shell"]);
+    expect(overview.entryPoints[0]).toBe("venture-evaluation/SKILL.md");
+    expect(overview.relevantFiles.map((file) => file.path)).toEqual(
+      expect.arrayContaining([
+        "venture-evaluation/scripts/check.py",
+        "venture-evaluation/scripts/review.sh",
+      ]),
+    );
+    expect(overview.testApproach).toEqual([
+      "No safe automated verification command discovered.",
+    ]);
   });
 });

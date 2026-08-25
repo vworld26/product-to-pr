@@ -258,9 +258,13 @@ try {
               repositoryPath,
             );
             console.log("\nVerification commands:");
-            verificationCommands.forEach((command) =>
-              console.log(`- ${command.command}`)
-            );
+            if (verificationCommands.length > 0) {
+              verificationCommands.forEach((command) =>
+                console.log(`- ${command.command}`)
+              );
+            } else {
+              console.log("- No safe automated verification commands were discovered.");
+            }
             let verificationChoice: VerificationChoice = "verify";
             if (pausesBeforeRoutineWork(operatingMode)) {
               let guidedVerificationChoice: VerificationChoice | undefined;
@@ -297,7 +301,10 @@ try {
                 );
               }
 
-              if (verification.every((result) => result.passed)) {
+              if (
+                verification.length > 0 &&
+                verification.every((result) => result.passed)
+              ) {
                 const commitMessage = proposeCommitMessage(plan);
                 console.log(`\nProposed commit message:\n${commitMessage}`);
                 let commitChoice: CommitChoice | undefined;
@@ -339,7 +346,9 @@ try {
                 }
               } else {
                 console.log(
-                  "\nCommit is unavailable because verification failed. Fix the local changes and verify again.",
+                  verification.length === 0
+                    ? "\nCommit is unavailable because no safe automated verification command was discovered. Add or document a verification command, then review again."
+                    : "\nCommit is unavailable because verification failed. Fix the local changes and verify again.",
                 );
               }
             } else {
