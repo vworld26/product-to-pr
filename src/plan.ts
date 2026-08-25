@@ -31,6 +31,7 @@ export type ProductPlan = {
 
 export type ProductReasoning = Pick<
   ProductPlan,
+  | "title"
   | "summary"
   | "clarifyingQuestions"
   | "productDecisions"
@@ -69,6 +70,7 @@ export function createProductPlan(
     .map((file) => file.path);
 
   const fallbackReasoning: ProductReasoning = {
+    title: toTitle(request),
     summary: `Make this request possible: ${request}`,
     clarifyingQuestions: [
       `What should someone see or be able to do when "${request}" is finished?`,
@@ -108,8 +110,8 @@ export function createProductPlan(
   const productReasoning = reasoning ?? fallbackReasoning;
 
   return {
-    title: toTitle(request),
     repositoryOverview,
     ...productReasoning,
+    title: reasoning?.title.trim() || toTitle(request),
   };
 }

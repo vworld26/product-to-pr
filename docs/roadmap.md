@@ -18,6 +18,10 @@ structured plan grounded in an existing repository.
 
 Current capabilities include:
 
+- plain-language interpretation confirmation and adaptive product discovery
+  before technical planning;
+- decision-source labels that distinguish confirmed needs, repository evidence,
+  recommended defaults, and assumptions;
 - Node and mixed-language repository structure, entry-point, test, and
   relevant-file inspection without requiring `package.json`;
 - discovery and reporting of root and nested `AGENTS.md` instructions;
@@ -25,6 +29,7 @@ Current capabilities include:
 - acceptance criteria, dependencies, implementation steps, risks, and test plans;
 - interactive approve, modify, and reject choices;
 - preservation of approved specifications without overwriting existing files;
+- inline display of the complete approved specification after it is saved;
 - explicit output-file handling with safe failure behavior;
 - creation of an isolated implementation branch after separate approval; and
 - automated pull-request checks for type checking and tests.
@@ -93,6 +98,9 @@ Candidate capabilities:
 - richer autonomy policies for safe retries and repository-specific risk levels;
 - evaluation fixtures for specification quality, repository grounding, scope
   control, and acceptance-criteria coverage;
+- a live-model evaluation suite that measures whether generated titles,
+  non-technical summaries, adaptive questions, and decision-source labels
+  consistently follow the discovery contract;
 - structured event logs with sensitive-data boundaries;
 - bounded retries and resumable stages for transient failures;
 - independent review of plans and diffs for contradictions, omissions, and

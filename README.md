@@ -6,6 +6,10 @@ Product-to-PR guides a user from product intent to a verified, reviewable pull
 request. It keeps specification approval, implementation, verification,
 committing, pushing, and pull-request creation as separate decisions.
 
+It begins by restating a short request in plain language, then asks focused
+questions about the user, desired behavior, configurable choices, outputs, and
+boundaries before turning those decisions into technical implementation work.
+
 ## What it produces
 
 - Feature summary
@@ -35,6 +39,8 @@ For a GitHub URL, Product-to-PR uses your existing `gh` authentication and
 explains before creating an isolated temporary working folder. This supports
 public repositories and private repositories you can access. At the end, you
 choose whether to keep or delete that folder; it is never silently deleted.
+The folder is a real Git checkout, and you can start from the default branch or
+another branch containing work already pushed by you or another coding agent.
 
 Choose a collaboration level for one run:
 
@@ -63,8 +69,9 @@ or `SKILL.md` files. It can infer skill entry points and config-backed pytest
 commands without requiring npm.
 
 When no safe automated verification command is configured, Product-to-PR says
-so explicitly and does not offer to commit. It never guesses that an arbitrary
-Shell script is safe to execute.
+so explicitly and does not offer to commit. When possible check scripts exist
+but are not configured as trusted commands, it reports that distinction. It
+never guesses that an arbitrary Shell script is safe to execute.
 
 ## Collaboration levels
 

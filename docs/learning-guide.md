@@ -31,6 +31,15 @@ A function accepts inputs and returns an output. Small functions are easier to u
 
 A CLI lets someone operate a program by typing a command. The words following the command are its arguments.
 
+### Product discovery before technical planning
+
+Product-to-PR first turns the short request into a plain-language description
+of what the feature does, who it helps, and why it matters. The user confirms
+or corrects that interpretation before answering adaptive product questions.
+Decisions are labeled as user-confirmed, repository evidence, recommended
+defaults, or assumptions to confirm so suggestions do not silently become
+requirements.
+
 ### Test
 
 A test runs code with a known input and checks the result. Tests help detect accidental behavior changes.
@@ -79,9 +88,11 @@ codebase, so those remain separate decisions.
 A local repository path lets Product-to-PR work directly in an existing folder.
 A GitHub URL first needs a local working copy because code inspection, branches,
 edits, and tests operate on files. Product-to-PR calls this a temporary working
-folder, shows its location, and asks before creating it. Private repositories
-use the operator's existing GitHub CLI authentication. The folder is kept unless
-the operator explicitly chooses to delete it at the end.
+folder, but explains that it is a real Git checkout. It shows the location,
+asks before creating it, and allows the default branch or another existing
+GitHub branch to be selected. Private repositories use the operator's existing
+GitHub CLI authentication. Before deletion, the product warns that locally
+saved specifications and unpushed work will also be removed.
 
 ### Graduated autonomy
 
