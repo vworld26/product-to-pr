@@ -22,6 +22,8 @@ Current capabilities include:
   before technical planning;
 - decision-source labels that distinguish confirmed needs, repository evidence,
   recommended defaults, and assumptions;
+- grouped accept, review, and decline choices for low-risk reversible defaults,
+  while material product decisions remain separate questions;
 - Node and mixed-language repository structure, entry-point, test, and
   relevant-file inspection without requiring `package.json`;
 - discovery and reporting of root and nested `AGENTS.md` instructions;

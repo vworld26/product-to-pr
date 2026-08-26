@@ -35,6 +35,8 @@ describe("buildReasoningPrompt", () => {
     expect(prompt).toContain("what the feature does, who it helps");
     expect(prompt).toContain("Confirmed by user:");
     expect(prompt).toContain("recommended default");
+    expect(prompt).toContain("low-risk, reversible choices");
+    expect(prompt).toContain("must not appear as a requirement");
   });
 
   it("includes user answers for a revised specification", () => {

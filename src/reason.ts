@@ -11,6 +11,7 @@ const reasoningSchema = {
   required: [
     "title",
     "summary",
+    "recommendedDefaults",
     "clarifyingQuestions",
     "productDecisions",
     "dependencies",
@@ -22,6 +23,18 @@ const reasoningSchema = {
   properties: {
     title: { type: "string" },
     summary: { type: "string" },
+    recommendedDefaults: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["decision", "impact"],
+        properties: {
+          decision: { type: "string" },
+          impact: { type: "string" },
+        },
+      },
+    },
     clarifyingQuestions: {
       type: "array",
       items: { type: "string" },
@@ -67,6 +80,8 @@ export function buildReasoningPrompt(
     "Write summary in non-technical language: what the feature does, who it helps, and why it matters. Do not mention files, libraries, schemas, or implementation details.",
     "Ask adaptive questions about the user, desired behavior, configurable variables, outputs, missing information, and boundaries before asking technical questions.",
     "Ask only questions that materially affect the product decision. Each question must briefly say why it matters and include a recommended default when appropriate.",
+    "Put only low-risk, reversible choices in recommendedDefaults. Each item needs a plain-language decision and impact. Keep choices that materially change scope, users, data, safety, or outcomes as clarifyingQuestions.",
+    "A recommendation that the user has not accepted must not appear as a requirement, acceptance criterion, or implementation step.",
     "Prefix every product decision with exactly one source label: Confirmed by user:, Repository evidence:, Recommended default:, or Assumption to confirm:.",
     "Never turn a recommendation or assumption into a confirmed requirement.",
     "Make acceptance criteria observable and testable.",
@@ -85,6 +100,7 @@ export function buildReasoningPrompt(
       "",
       "Convert these answers into explicit productDecisions.",
       "Label decisions based on direct user answers as Confirmed by user:.",
+      "Convert accepted recommendations into Recommended default: decisions. A declined or unanswered recommendation must remain unresolved and must not appear as a requirement, acceptance criterion, or implementation step.",
       "Remove questions that the answers resolved; keep only material unanswered questions.",
     );
   }

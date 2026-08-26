@@ -17,8 +17,13 @@ import {
 } from "./approval.js";
 import { createImplementationBranch } from "./branch.js";
 import {
+  formatDefaultDecision,
+  parseDefaultReviewChoice,
+  parseDefaultsChoice,
   parseInterpretationChoice,
   parseRepositorySourceChoice,
+  type DefaultReviewChoice,
+  type DefaultsChoice,
   type InterpretationChoice,
   type RepositorySourceChoice,
 } from "./discovery.js";
@@ -218,6 +223,57 @@ try {
         answers.push("The user confirmed the plain-language feature interpretation.");
       }
 
+      if (reasoning.recommendedDefaults.length > 0) {
+        console.log("\nRecommended defaults for low-risk choices:\n");
+        reasoning.recommendedDefaults.forEach((recommendation, index) => {
+          console.log(
+            `${index + 1}. ${recommendation.decision}\n   Impact: ${recommendation.impact}`,
+          );
+        });
+        let defaultsChoice: DefaultsChoice | undefined;
+        while (!defaultsChoice) {
+          defaultsChoice = parseDefaultsChoice(
+            await terminal.question(
+              "\nChoose [A]ccept all, [R]eview individually, or [D]ecline all:\n> ",
+            ),
+          );
+          if (!defaultsChoice) console.log("Please enter accept all, review, or decline all.");
+        }
+        if (defaultsChoice === "accept-all") {
+          reasoning.recommendedDefaults.forEach((recommendation) => {
+            answers.push(formatDefaultDecision(recommendation.decision, "accept"));
+          });
+        } else if (defaultsChoice === "decline-all") {
+          reasoning.recommendedDefaults.forEach((recommendation) => {
+            answers.push(formatDefaultDecision(recommendation.decision, "decline"));
+          });
+        } else {
+          for (const recommendation of reasoning.recommendedDefaults) {
+            console.log(`\n${recommendation.decision}`);
+            console.log(`Impact: ${recommendation.impact}`);
+            let defaultChoice: DefaultReviewChoice | undefined;
+            while (!defaultChoice) {
+              defaultChoice = parseDefaultReviewChoice(
+                await terminal.question("Choose [A]ccept, [C]hange, or [D]ecline:\n> "),
+              );
+              if (!defaultChoice) console.log("Please enter accept, change, or decline.");
+            }
+            if (defaultChoice === "accept") {
+              answers.push(formatDefaultDecision(recommendation.decision, "accept"));
+            } else if (defaultChoice === "decline") {
+              answers.push(formatDefaultDecision(recommendation.decision, "decline"));
+            } else {
+              const replacement = (
+                await terminal.question("Describe the default you want instead:\n> ")
+              ).trim();
+              answers.push(
+                formatDefaultDecision(recommendation.decision, "change", replacement),
+              );
+            }
+          }
+        }
+      }
+
       if (reasoning.clarifyingQuestions.length > 0) {
         console.log("\nA few product questions before I finalize the plan:\n");
         for (const question of reasoning.clarifyingQuestions) {
@@ -228,14 +284,14 @@ try {
             }`,
           );
         }
-
-        reasoning = await reasonAboutFeature(
-          repositoryPath,
-          featureRequest,
-          repositoryOverview,
-          answers,
-        );
       }
+
+      reasoning = await reasonAboutFeature(
+        repositoryPath,
+        featureRequest,
+        repositoryOverview,
+        answers,
+      );
 
       while (true) {
         const plan = createProductPlan(

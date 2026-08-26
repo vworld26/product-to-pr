@@ -64,6 +64,7 @@ describe("createProductPlan", () => {
       {
         title: "Save product plans",
         summary: "Allow users to preserve a generated plan.",
+        recommendedDefaults: [],
         clarifyingQuestions: ["Which file format should be supported first?"],
         productDecisions: [
           "Confirmed by user: Saving is explicitly requested.",
@@ -87,6 +88,7 @@ describe("createProductPlan", () => {
     expect(plan.acceptanceCriteria).toEqual([
       "A user can save the generated plan.",
     ]);
+    expect(plan).not.toHaveProperty("recommendedDefaults");
   });
 });
 

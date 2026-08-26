@@ -40,7 +40,12 @@ export type ProductReasoning = Pick<
   | "implementationSteps"
   | "risks"
   | "testPlan"
->;
+> & {
+  recommendedDefaults: Array<{
+    decision: string;
+    impact: string;
+  }>;
+};
 
 function toTitle(featureRequest: string): string {
   const trimmed = featureRequest.trim().replace(/[.!?]+$/, "");
@@ -72,6 +77,7 @@ export function createProductPlan(
   const fallbackReasoning: ProductReasoning = {
     title: toTitle(request),
     summary: `Make this request possible: ${request}`,
+    recommendedDefaults: [],
     clarifyingQuestions: [
       `What should someone see or be able to do when "${request}" is finished?`,
       "What choices or rules should guide how this works?",
@@ -108,10 +114,12 @@ export function createProductPlan(
     ],
   };
   const productReasoning = reasoning ?? fallbackReasoning;
+  const { recommendedDefaults: _recommendedDefaults, ...planReasoning } =
+    productReasoning;
 
   return {
     repositoryOverview,
-    ...productReasoning,
+    ...planReasoning,
     title: reasoning?.title.trim() || toTitle(request),
   };
 }

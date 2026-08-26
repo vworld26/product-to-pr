@@ -40,6 +40,14 @@ Decisions are labeled as user-confirmed, repository evidence, recommended
 defaults, or assumptions to confirm so suggestions do not silently become
 requirements.
 
+Low-risk and reversible defaults are grouped to reduce unnecessary question
+fatigue. The user can accept the group, review each recommendation, or decline
+the group. Accepted items remain labeled as recommended defaults; they are not
+rewritten as ideas the user originally supplied. Declined or unanswered items
+stay unresolved and cannot silently enter acceptance criteria or implementation
+steps. Choices that materially change scope, users, data, safety, or outcomes
+are always asked separately.
+
 ### Test
 
 A test runs code with a known input and checks the result. Tests help detect accidental behavior changes.
