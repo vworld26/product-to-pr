@@ -59,6 +59,29 @@ Use `--mode choose` to choose again and save a new preference for that
 repository. Repository instructions and publication approvals apply in every
 mode.
 
+Choose which AI makes the local implementation changes:
+
+```bash
+npm run dev -- . "Add a greeting command" --provider codex
+npm run dev -- . "Add a greeting command" --provider claude
+npm run dev -- . "Add a greeting command" --provider manual
+```
+
+When `--provider` is omitted, Product-to-PR asks after the specification and
+build are approved. Codex and Claude Code receive the same approved scope and
+cannot run verification or publish changes during implementation. Product-to-PR
+checks that the selected CLI is available before creating the implementation
+branch.
+
+Manual handoff saves and displays the complete provider-neutral prompt. Give it
+to another AI working in the same repository, then return to Product-to-PR so
+the same repository checks, verification, review, and publication approvals can
+continue. If Product-to-PR is already running inside Claude Code, use manual
+handoff instead of trying to start a nested Claude Code session.
+
+This provider choice applies to implementation only. Product reasoning and the
+automated acceptance review remain Codex-backed in this version.
+
 After a specification is approved, Product-to-PR saves a resumable session in
 `.product-to-pr/sessions/`. Continue later from the same unchanged repository,
 branch, and commit:
@@ -108,6 +131,9 @@ still require manual review.
 - **Guide me** — Explain each stage and ask before implementation and verification.
 - **Build with me** — Handle routine implementation and verification, then bring back the review.
 - **Take the lead** — Move through routine work with less explanation while preserving safety stops.
+
+Collaboration level controls how often Product-to-PR pauses. Implementation
+provider controls which AI edits the code. They are separate choices.
 
 Commit, push, pull-request, merge, deletion, and material scope decisions remain
 separately controlled in every level.

@@ -6,7 +6,10 @@
 - `src/plan.ts` contains the product logic. It turns an input into a plan.
 - `src/format.ts` converts the plan object into readable Markdown.
 - `src/implementation.ts` ties an approved plan to a branch, commit, and checklist.
-- `src/execute.ts` safely asks Codex to make the approved local changes.
+- `src/provider.ts` defines the canonical Codex, Claude Code, and manual
+  implementation choices and checks automated-provider availability.
+- `src/execute.ts` safely asks the selected automated provider to make the
+  approved local changes.
 - `src/verify.ts` previews and runs known repository checks after approval.
 - `src/review.ts` explains the diff, test evidence, and acceptance status.
 - `src/publication.ts` commits and publishes only after separate approvals.
@@ -81,9 +84,12 @@ workspace cleanup warns when it would remove the only saved session.
 
 After the user separately chooses to build, Product-to-PR checks that the
 branch, commit, specification, and working tree still match the approved
-package. Only then does it ask Codex to edit the necessary files. It stops
-before tests, commits, pushes, or pull requests so each later action remains a
-separate decision.
+package. Only then does it ask the selected implementation provider to edit the
+necessary files. Codex and Claude Code use separate command adapters but receive
+the same prompt. Manual handoff saves and displays that prompt, waits while the
+user gives it to another AI, and then rejoins the same validation flow. It
+stops before tests, commits, pushes, or pull requests so each later action
+remains a separate decision.
 
 ### Verification and review
 
@@ -120,6 +126,10 @@ saved specifications and unpushed work will also be removed.
 
 An operating mode changes how often Product-to-PR pauses during routine work;
 it does not remove repository rules or safety boundaries.
+
+The implementation provider is a different choice. It selects who makes the
+local code edits—Codex, Claude Code, or another AI through manual handoff—without
+changing branch isolation, verification evidence, or approval boundaries.
 
 - **Guide me** — Explain each stage and ask before implementation and verification.
 - **Build with me** — Handle routine implementation and verification, then bring back the review.

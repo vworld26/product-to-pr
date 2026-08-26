@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
-import { preserveImplementationPackage } from "./implementation.js";
+import {
+  createManualImplementationRunner,
+  preserveImplementationPackage,
+  preserveManualImplementationPrompt,
+} from "./implementation.js";
 import type { ProductPlan } from "./plan.js";
 
 const execFileAsync = promisify(execFile);
@@ -105,6 +109,63 @@ describe("preserveImplementationPackage", () => {
       );
       expect(content).toContain("- src/plan.ts — Defines the product plan.");
       expect(content).toContain("- AGENTS.md (scope: .)");
+    } finally {
+      await rm(repositoryPath, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("preserveManualImplementationPrompt", () => {
+  it("saves the provider-neutral prompt beside the implementation package", async () => {
+    const repositoryPath = await createRepository();
+    const packagePath = join(
+      repositoryPath,
+      ".product-to-pr",
+      "implementations",
+      "example.md",
+    );
+    await mkdir(join(repositoryPath, ".product-to-pr", "implementations"), {
+      recursive: true,
+    });
+    await writeFile(packagePath, "# Package\n");
+
+    try {
+      const path = await preserveManualImplementationPrompt(
+        packagePath,
+        "Implement this approved change.\n",
+      );
+
+      expect(path).toContain("example-manual-prompt.md");
+      expect(await readFile(path, "utf8"))
+        .toBe("Implement this approved change.\n");
+    } finally {
+      await rm(repositoryPath, { recursive: true, force: true });
+    }
+  });
+
+  it("stops when another AI changes the protected handoff prompt", async () => {
+    const repositoryPath = await createRepository();
+    const packagePath = join(
+      repositoryPath,
+      ".product-to-pr",
+      "implementations",
+      "changed.md",
+    );
+    await mkdir(join(repositoryPath, ".product-to-pr", "implementations"), {
+      recursive: true,
+    });
+    await writeFile(packagePath, "# Package\n");
+
+    try {
+      const runner = createManualImplementationRunner(
+        packagePath,
+        async (promptPath) => {
+          await writeFile(promptPath, "Changed instructions\n");
+        },
+      );
+
+      await expect(runner(repositoryPath, "Approved instructions\n"))
+        .rejects.toThrow("protected manual handoff instructions changed");
     } finally {
       await rm(repositoryPath, { recursive: true, force: true });
     }

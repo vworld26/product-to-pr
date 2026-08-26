@@ -2,12 +2,17 @@ import { mkdir, open, stat, unlink, type FileHandle } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { parseOperatingMode, type OperatingMode } from "./mode.js";
+import {
+  parseImplementationProvider,
+  type ImplementationProvider,
+} from "./provider.js";
 
 export type CliArguments = {
   repositoryPath: string;
   featureRequest: string;
   outputPath?: string;
   modeOverride?: OperatingMode | "choose";
+  providerOverride?: ImplementationProvider;
   resumePath?: string;
 };
 
@@ -22,6 +27,7 @@ export function parseCliArguments(args: string[]): CliArguments {
   const featureParts: string[] = [];
   let outputPath: string | undefined;
   let modeOverride: OperatingMode | "choose" | undefined;
+  let providerOverride: ImplementationProvider | undefined;
   let resumePath: string | undefined;
 
   for (let index = 0; index < remaining.length; index += 1) {
@@ -62,6 +68,24 @@ export function parseCliArguments(args: string[]): CliArguments {
       continue;
     }
 
+    if (argument === "--provider") {
+      if (providerOverride !== undefined) {
+        throw new Error("The --provider option can only be used once.");
+      }
+      const value = remaining[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("The --provider option requires a provider.");
+      }
+      providerOverride = parseImplementationProvider(value);
+      if (!providerOverride) {
+        throw new Error(
+          "The --provider option must be codex, claude, or manual.",
+        );
+      }
+      index += 1;
+      continue;
+    }
+
     if (argument !== "--output") {
       featureParts.push(argument);
       continue;
@@ -85,6 +109,7 @@ export function parseCliArguments(args: string[]): CliArguments {
     featureRequest: featureParts.join(" "),
     outputPath,
     modeOverride,
+    providerOverride,
     resumePath,
   };
 }
