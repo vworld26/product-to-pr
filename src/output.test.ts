@@ -32,6 +32,7 @@ describe("parseCliArguments", () => {
       featureRequest: "Add Markdown export",
       outputPath: "plan.md",
       modeOverride: undefined,
+      resumePath: undefined,
     });
   });
 
@@ -41,6 +42,7 @@ describe("parseCliArguments", () => {
       featureRequest: "Add Markdown export",
       outputPath: undefined,
       modeOverride: undefined,
+      resumePath: undefined,
     });
   });
 
@@ -52,6 +54,7 @@ describe("parseCliArguments", () => {
       featureRequest: "Add export",
       outputPath: undefined,
       modeOverride: "build-with-me",
+      resumePath: undefined,
     });
     expect(() => parseCliArguments([".", "Feature", "--mode", "fast"]))
       .toThrow("must be guide, build-with-me, take-the-lead, or choose");
@@ -61,6 +64,19 @@ describe("parseCliArguments", () => {
     expect(() => parseCliArguments([".", "Feature", "--output"])).toThrow(
       "requires a filename",
     );
+  });
+
+  it("parses a resumable session without requiring a new feature request", () => {
+    expect(parseCliArguments(["/repo", "--resume", "/repo/session.json"]))
+      .toEqual({
+        repositoryPath: "/repo",
+        featureRequest: "",
+        outputPath: undefined,
+        modeOverride: undefined,
+        resumePath: "/repo/session.json",
+      });
+    expect(() => parseCliArguments(["/repo", "--resume"]))
+      .toThrow("requires a session filename");
   });
 });
 

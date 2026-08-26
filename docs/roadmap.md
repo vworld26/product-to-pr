@@ -32,6 +32,8 @@ Current capabilities include:
 - interactive approve, modify, and reject choices;
 - preservation of approved specifications without overwriting existing files;
 - inline display of the complete approved specification after it is saved;
+- versioned approved-specification session handoffs that resume without
+  repeating discovery and refuse changed repository or specification state;
 - explicit output-file handling with safe failure behavior;
 - creation of an isolated implementation branch after separate approval;
 - automated pull-request checks for type checking and tests; and

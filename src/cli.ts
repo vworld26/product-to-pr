@@ -46,7 +46,7 @@ import {
   parseCliArguments,
   writeOutputFile,
 } from "./output.js";
-import { createProductPlan } from "./plan.js";
+import { createProductPlan, type ProductReasoning } from "./plan.js";
 import {
   commitReviewedChanges,
   openPullRequest,
@@ -70,6 +70,13 @@ import {
   type WorkspaceChoice,
 } from "./repository.js";
 import { createLocalReview, formatLocalReview } from "./review.js";
+import {
+  loadResumableSession,
+  managedWorkspaceDeletionWarning,
+  saveResumableSession,
+  saveSessionOperatingMode,
+  type LoadedSession,
+} from "./session.js";
 import { discoverVerification, runVerificationCommands } from "./verify.js";
 
 async function saveRequestedOutput(
@@ -99,14 +106,21 @@ async function saveRequestedOutput(
 }
 
 try {
-  const { repositoryPath: repositoryInput, featureRequest, outputPath, modeOverride } =
+  const {
+    repositoryPath: repositoryInput,
+    featureRequest: requestedFeature,
+    outputPath,
+    modeOverride,
+    resumePath,
+  } =
     parseCliArguments(process.argv.slice(2));
+  let featureRequest = requestedFeature;
 
   if (!repositoryInput) {
     throw new Error("A repository folder or GitHub URL is required.");
   }
 
-  if (!featureRequest.trim()) {
+  if (!featureRequest.trim() && !resumePath) {
     throw new Error("A feature request is required.");
   }
 
@@ -173,24 +187,50 @@ try {
     preparedRepository = await prepareRepository(repositoryInput, async () => false);
   }
   const repositoryPath = preparedRepository.repositoryPath;
-
-  const repositoryOverview = await inspectRepository(
-    repositoryPath,
-    featureRequest,
-  );
-  let reasoning = await reasonAboutFeature(
-    repositoryPath,
-    featureRequest,
-    repositoryOverview,
-  );
+  if (resumePath && !interactive) {
+    throw new Error("Resuming requires an interactive run so continuation choices remain explicit.");
+  }
+  let resumeSession: LoadedSession | undefined = resumePath
+    ? await loadResumableSession(resumePath, repositoryPath)
+    : undefined;
+  if (resumeSession) featureRequest = resumeSession.featureRequest;
+  const repositoryOverview = resumeSession?.plan.repositoryOverview ??
+    await inspectRepository(repositoryPath, featureRequest);
+  let reasoning: ProductReasoning = resumeSession
+    ? {
+      title: resumeSession.plan.title,
+      summary: resumeSession.plan.summary,
+      recommendedDefaults: [],
+      clarifyingQuestions: resumeSession.plan.clarifyingQuestions,
+      productDecisions: resumeSession.plan.productDecisions,
+      dependencies: resumeSession.plan.dependencies,
+      acceptanceCriteria: resumeSession.plan.acceptanceCriteria,
+      implementationSteps: resumeSession.plan.implementationSteps,
+      risks: resumeSession.plan.risks,
+      testPlan: resumeSession.plan.testPlan,
+    }
+    : await reasonAboutFeature(
+      repositoryPath,
+      featureRequest,
+      repositoryOverview,
+    );
   if (interactive) {
     const terminal = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
     const answers: string[] = [];
+    let activeSessionPath = resumeSession?.sessionPath;
 
     try {
+      if (resumeSession) {
+        console.log("\nResuming an approved Product-to-PR specification.");
+        console.log(`Saved: ${resumeSession.createdAt}`);
+        console.log(`Stage: ${resumeSession.stage}`);
+        console.log("Remaining actions:");
+        resumeSession.remainingActions.forEach((action) => console.log(`- ${action}`));
+      }
+      if (!resumeSession) {
       console.log("\nWhat I understand you want:\n");
       console.log(reasoning.summary);
       let interpretationChoice: InterpretationChoice | undefined;
@@ -292,17 +332,18 @@ try {
         repositoryOverview,
         answers,
       );
+      }
 
       while (true) {
-        const plan = createProductPlan(
+        const plan = resumeSession?.plan ?? createProductPlan(
           featureRequest,
           repositoryOverview,
           reasoning,
         );
-        const specification = formatPlan(plan);
+        const specification = resumeSession?.specification.content ?? formatPlan(plan);
         console.log(`\n${specification}`);
 
-        let choice: ReviewChoice | undefined;
+        let choice: ReviewChoice | undefined = resumeSession ? "approve" : undefined;
         while (!choice) {
           choice = parseReviewChoice(
             await terminal.question(
@@ -335,12 +376,26 @@ try {
             console.log(`\nPlan saved to ${outputPath}`);
           }
 
-          const path = await preserveApprovedSpecification(
-            repositoryPath,
-            plan.title,
-            specification,
-          );
-          console.log(`\nSpecification approved and saved to ${path}`);
+          const path = resumeSession?.specification.path ??
+            await preserveApprovedSpecification(
+              repositoryPath,
+              plan.title,
+              specification,
+            );
+          if (resumeSession) {
+            console.log(`\nValidated resumable session: ${resumeSession.sessionPath}`);
+          } else {
+            console.log(`\nSpecification approved and saved to ${path}`);
+            resumeSession = await saveResumableSession(
+              preparedRepository,
+              featureRequest,
+              plan,
+              path,
+              specification,
+            );
+            activeSessionPath = resumeSession.sessionPath;
+            console.log(`Resumable session saved to ${activeSessionPath}`);
+          }
           console.log("\nYour approved specification:\n");
           console.log(specification);
           console.log("No product code was changed.");
@@ -350,6 +405,8 @@ try {
               ? modeOverride
               : modeOverride === "choose"
               ? undefined
+              : resumeSession?.operatingMode
+              ? resumeSession.operatingMode
               : await loadOperatingMode(repositoryPath);
           if (!operatingMode) {
             console.log("\nHow would you like to continue?");
@@ -382,6 +439,12 @@ try {
           } else {
             console.log(`\nOperating mode: ${operatingMode}`);
             console.log(operatingModes[operatingMode].description);
+          }
+          if (resumeSession) {
+            resumeSession = await saveSessionOperatingMode(
+              resumeSession,
+              operatingMode,
+            );
           }
 
           let buildChoice: BuildChoice = "build";
@@ -609,9 +672,8 @@ try {
         console.log(
           `\nTemporary working folder: ${preparedRepository.repositoryPath}`,
         );
-        console.log(
-          "Deleting this folder also deletes any specifications or unpushed work stored only inside it. GitHub content is not deleted.",
-        );
+        console.log(managedWorkspaceDeletionWarning(activeSessionPath));
+        console.log("GitHub content is not deleted.");
         while (!workspaceChoice) {
           workspaceChoice = parseWorkspaceChoice(
             await terminal.question("Choose [K]eep or [D]elete this folder:\n> "),
