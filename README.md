@@ -44,6 +44,8 @@ public repositories and private repositories you can access. At the end, you
 choose whether to keep or delete that folder; it is never silently deleted.
 The folder is a real Git checkout, and you can start from the default branch or
 another branch containing work already pushed by you or another coding agent.
+If it contains the only resumable session, Product-to-PR says so before asking
+whether to delete the managed folder.
 
 Choose a collaboration level for one run:
 
@@ -56,6 +58,18 @@ npm run dev -- . "Add a greeting command" --mode take-the-lead
 Use `--mode choose` to choose again and save a new preference for that
 repository. Repository instructions and publication approvals apply in every
 mode.
+
+After a specification is approved, Product-to-PR saves a resumable session in
+`.product-to-pr/sessions/`. Continue later from the same unchanged repository,
+branch, and commit:
+
+```bash
+npm run dev -- /path/to/repository --resume /path/to/repository/.product-to-pr/sessions/session.json
+```
+
+Resume validates the approved specification and repository state, displays the
+stored plan, and continues at the operating-mode choice without repeating
+discovery. Version 1 resumes only from the approved-specification checkpoint.
 
 ## Verify it
 

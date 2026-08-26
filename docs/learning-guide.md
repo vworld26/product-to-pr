@@ -63,6 +63,20 @@ commit, relevant files, repository instructions, and work to verify. It gives a
 beginner a visible checklist and gives reviewers evidence that later changes
 started from the approved scope.
 
+### Resumable approved specifications
+
+Specification approval creates a versioned session handoff containing the
+approved plan, its integrity digest, repository source, branch, commit,
+operating mode, and remaining actions. `--resume` reloads that checkpoint and
+continues without repeating discovery only when the specification and
+repository state still match. This conservative boundary prevents Product-to-PR
+from applying an old plan to code that changed while the session was paused.
+
+Version 1 resumes at the approved-specification stage. Once implementation
+changes the branch or commit, a later recovery model is needed; the product does
+not claim that partially completed implementation is resumable yet. Managed
+workspace cleanup warns when it would remove the only saved session.
+
 ### Controlled local implementation
 
 After the user separately chooses to build, Product-to-PR checks that the

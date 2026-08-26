@@ -8,6 +8,7 @@ export type CliArguments = {
   featureRequest: string;
   outputPath?: string;
   modeOverride?: OperatingMode | "choose";
+  resumePath?: string;
 };
 
 export class MissingOutputDirectoryError extends Error {
@@ -21,6 +22,7 @@ export function parseCliArguments(args: string[]): CliArguments {
   const featureParts: string[] = [];
   let outputPath: string | undefined;
   let modeOverride: OperatingMode | "choose" | undefined;
+  let resumePath: string | undefined;
 
   for (let index = 0; index < remaining.length; index += 1) {
     const argument = remaining[index];
@@ -43,6 +45,19 @@ export function parseCliArguments(args: string[]): CliArguments {
           );
         }
       }
+      index += 1;
+      continue;
+    }
+
+    if (argument === "--resume") {
+      if (resumePath !== undefined) {
+        throw new Error("The --resume option can only be used once.");
+      }
+      const value = remaining[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("The --resume option requires a session filename.");
+      }
+      resumePath = value;
       index += 1;
       continue;
     }
@@ -70,6 +85,7 @@ export function parseCliArguments(args: string[]): CliArguments {
     featureRequest: featureParts.join(" "),
     outputPath,
     modeOverride,
+    resumePath,
   };
 }
 
