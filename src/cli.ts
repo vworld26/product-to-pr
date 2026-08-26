@@ -27,9 +27,16 @@ import {
   type InterpretationChoice,
   type RepositorySourceChoice,
 } from "./discovery.js";
-import { implementApprovedPlan } from "./execute.js";
+import {
+  implementApprovedPlan,
+  implementationRunnerFor,
+  type ImplementationRunner,
+} from "./execute.js";
 import { formatPlan } from "./format.js";
-import { preserveImplementationPackage } from "./implementation.js";
+import {
+  createManualImplementationRunner,
+  preserveImplementationPackage,
+} from "./implementation.js";
 import { inspectRepository } from "./inspect.js";
 import {
   loadOperatingMode,
@@ -47,6 +54,12 @@ import {
   writeOutputFile,
 } from "./output.js";
 import { createProductPlan, type ProductReasoning } from "./plan.js";
+import {
+  assertImplementationProviderReady,
+  implementationProviders,
+  parseImplementationProvider,
+  type ImplementationProvider,
+} from "./provider.js";
 import {
   commitReviewedChanges,
   openPullRequest,
@@ -111,6 +124,7 @@ try {
     featureRequest: requestedFeature,
     outputPath,
     modeOverride,
+    providerOverride,
     resumePath,
   } =
     parseCliArguments(process.argv.slice(2));
@@ -464,6 +478,40 @@ try {
           }
 
           if (buildChoice === "build") {
+            let implementationProvider: ImplementationProvider | undefined =
+              providerOverride;
+            if (implementationProvider) {
+              await assertImplementationProviderReady(implementationProvider);
+            } else {
+              while (!implementationProvider) {
+                console.log("\nWhich AI should implement the approved change?");
+                console.log(
+                  `[C] ${implementationProviders.codex.label} — ${implementationProviders.codex.description}`,
+                );
+                console.log(
+                  `[L] ${implementationProviders.claude.label} — ${implementationProviders.claude.description}`,
+                );
+                console.log(
+                  `[M] ${implementationProviders.manual.label} — ${implementationProviders.manual.description}`,
+                );
+                const selected = parseImplementationProvider(
+                  await terminal.question("> "),
+                );
+                if (!selected) {
+                  console.log("Please enter Codex, Claude, or manual.");
+                  continue;
+                }
+                try {
+                  await assertImplementationProviderReady(selected);
+                  implementationProvider = selected;
+                } catch (error) {
+                  console.log(
+                    error instanceof Error ? error.message : "The provider is unavailable.",
+                  );
+                }
+              }
+            }
+
             const branchName = await createImplementationBranch(
               repositoryPath,
               plan.title,
@@ -479,11 +527,33 @@ try {
                 `Implementation checklist saved to ${implementationPath}`,
               );
             }
-            console.log("\nImplementing the approved change locally...");
+            console.log(
+              `\nImplementation provider: ${implementationProviders[implementationProvider].label}`,
+            );
+            console.log("Implementing the approved change locally...");
+            let implementationRunner: ImplementationRunner;
+            if (implementationProvider === "manual") {
+              implementationRunner = createManualImplementationRunner(
+                implementationPath,
+                async (manualPromptPath, prompt) => {
+                  console.log(`\nManual handoff saved to ${manualPromptPath}`);
+                  console.log("\nInstructions for the other AI:\n");
+                  console.log(prompt);
+                  await terminal.question(
+                    "\nGive these instructions to the other AI in this repository. Return here and press Enter after it finishes.\n> ",
+                  );
+                },
+              );
+            } else {
+              implementationRunner = implementationRunnerFor(
+                implementationProvider,
+              );
+            }
             const implementationSummary = await implementApprovedPlan(
               repositoryPath,
               path,
               implementationPath,
+              implementationRunner,
             );
             console.log(`\n${implementationSummary}`);
             console.log(

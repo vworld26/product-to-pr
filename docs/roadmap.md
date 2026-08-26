@@ -49,6 +49,8 @@ Current capabilities:
 
 - bind implementation to the exact approved specification and repository state;
 - translate acceptance criteria into a scoped implementation checklist;
+- offer Codex, Claude Code, and provider-neutral manual implementation choices
+  that preserve the same scope and evidence checks;
 - apply changes only on the approved isolated branch;
 - preserve pre-existing and unrelated working-tree changes;
 - run repository-prescribed checks and targeted tests with explicit approval;

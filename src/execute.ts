@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 
+import type {
+  AutomatedImplementationProvider,
+} from "./provider.js";
+
 const execFileAsync = promisify(execFile);
 
 type ImplementationBinding = {
@@ -15,6 +19,13 @@ export type ImplementationRunner = (
   repositoryPath: string,
   prompt: string,
 ) => Promise<string>;
+
+export type ImplementationCommand = {
+  command: AutomatedImplementationProvider;
+  args: string[];
+  cwd?: string;
+  label: string;
+};
 
 function readBinding(packageContent: string): ImplementationBinding {
   const branch = packageContent.match(/^- Branch: (.+)$/m)?.[1];
@@ -71,26 +82,92 @@ export async function runCodexImplementation(
   repositoryPath: string,
   prompt: string,
 ): Promise<string> {
+  return runImplementationCommand(
+    buildImplementationCommand("codex", repositoryPath),
+    prompt,
+  );
+}
+
+export async function runClaudeImplementation(
+  repositoryPath: string,
+  prompt: string,
+): Promise<string> {
+  return runImplementationCommand(
+    buildImplementationCommand("claude", repositoryPath),
+    prompt,
+  );
+}
+
+export function buildImplementationCommand(
+  provider: AutomatedImplementationProvider,
+  repositoryPath: string,
+): ImplementationCommand {
+  if (provider === "claude") {
+    return {
+      command: "claude",
+      args: [
+        "--print",
+        "--no-session-persistence",
+        "--safe-mode",
+        "--permission-mode",
+        "acceptEdits",
+        "--output-format",
+        "text",
+        "--tools",
+        "Read,Edit,Write,Glob,Grep",
+      ],
+      cwd: repositoryPath,
+      label: "Claude Code",
+    };
+  }
+  return {
+    command: "codex",
+    args: [
+      "exec",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--sandbox",
+      "workspace-write",
+      "--cd",
+      repositoryPath,
+      "-",
+    ],
+    label: "Codex",
+  };
+}
+
+export function implementationRunnerFor(
+  provider: AutomatedImplementationProvider,
+): ImplementationRunner {
+  return provider === "claude"
+    ? runClaudeImplementation
+    : runCodexImplementation;
+}
+
+async function runImplementationCommand(
+  implementationCommand: ImplementationCommand,
+  prompt: string,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(
-      "codex",
-      [
-        "exec",
-        "--ephemeral",
-        "--ignore-user-config",
-        "--sandbox",
-        "workspace-write",
-        "--cd",
-        repositoryPath,
-        "-",
-      ],
-      { stdio: ["pipe", "pipe", "pipe"] },
+      implementationCommand.command,
+      implementationCommand.args,
+      {
+        ...(implementationCommand.cwd
+          ? { cwd: implementationCommand.cwd }
+          : {}),
+        stdio: ["pipe", "pipe", "pipe"],
+      },
     );
     let output = "";
     let errorOutput = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error("Implementation timed out after 10 minutes."));
+      reject(
+        new Error(
+          `${implementationCommand.label} implementation timed out after 10 minutes.`,
+        ),
+      );
     }, 600_000);
 
     child.stdout.setEncoding("utf8");
@@ -108,7 +185,10 @@ export async function runCodexImplementation(
         resolve(output.trim());
       } else {
         reject(
-          new Error(errorOutput.trim() || `Codex exited with status ${code}.`),
+          new Error(
+            errorOutput.trim() ||
+              `${implementationCommand.label} exited with status ${code}.`,
+          ),
         );
       }
     });

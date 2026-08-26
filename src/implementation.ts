@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { extname, join, relative } from "node:path";
 import { promisify } from "node:util";
 
 import type { ProductPlan } from "./plan.js";
+import type { ImplementationRunner } from "./execute.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -111,4 +112,35 @@ export async function preserveImplementationPackage(
   await mkdir(directory, { recursive: true });
   await writeFile(path, content, { encoding: "utf8", flag: "wx" });
   return path;
+}
+
+export async function preserveManualImplementationPrompt(
+  implementationPackagePath: string,
+  prompt: string,
+): Promise<string> {
+  const extension = extname(implementationPackagePath);
+  const path = extension
+    ? `${implementationPackagePath.slice(0, -extension.length)}-manual-prompt${extension}`
+    : `${implementationPackagePath}-manual-prompt.md`;
+  await writeFile(path, prompt, { encoding: "utf8", flag: "wx" });
+  return path;
+}
+
+export function createManualImplementationRunner(
+  implementationPackagePath: string,
+  handoff: (promptPath: string, prompt: string) => Promise<void>,
+): ImplementationRunner {
+  return async (_repositoryPath, prompt) => {
+    const promptPath = await preserveManualImplementationPrompt(
+      implementationPackagePath,
+      prompt,
+    );
+    await handoff(promptPath, prompt);
+    if (await readFile(promptPath, "utf8") !== prompt) {
+      throw new Error(
+        "The protected manual handoff instructions changed during implementation. Review the repository before continuing.",
+      );
+    }
+    return `Manual AI handoff completed. Instructions remain saved at ${promptPath}.`;
+  };
 }

@@ -120,7 +120,7 @@ export async function saveResumableSession(
     },
     plan,
     remainingActions: [
-      "Choose an operating mode or stop.",
+      "Choose an operating mode and implementation provider or stop.",
       "Create an implementation branch and build the approved plan.",
       "Verify and review local changes before publication.",
     ],

@@ -32,6 +32,7 @@ describe("parseCliArguments", () => {
       featureRequest: "Add Markdown export",
       outputPath: "plan.md",
       modeOverride: undefined,
+      providerOverride: undefined,
       resumePath: undefined,
     });
   });
@@ -42,6 +43,7 @@ describe("parseCliArguments", () => {
       featureRequest: "Add Markdown export",
       outputPath: undefined,
       modeOverride: undefined,
+      providerOverride: undefined,
       resumePath: undefined,
     });
   });
@@ -54,10 +56,26 @@ describe("parseCliArguments", () => {
       featureRequest: "Add export",
       outputPath: undefined,
       modeOverride: "build-with-me",
+      providerOverride: undefined,
       resumePath: undefined,
     });
     expect(() => parseCliArguments([".", "Feature", "--mode", "fast"]))
       .toThrow("must be guide, build-with-me, take-the-lead, or choose");
+  });
+
+  it("supports an explicit implementation provider", () => {
+    expect(
+      parseCliArguments([".", "Add", "export", "--provider", "claude"]),
+    ).toEqual({
+      repositoryPath: ".",
+      featureRequest: "Add export",
+      outputPath: undefined,
+      modeOverride: undefined,
+      providerOverride: "claude",
+      resumePath: undefined,
+    });
+    expect(() => parseCliArguments([".", "Feature", "--provider", "other-model"]))
+      .toThrow("must be codex, claude, or manual");
   });
 
   it("rejects --output without a filename", () => {
@@ -73,6 +91,7 @@ describe("parseCliArguments", () => {
         featureRequest: "",
         outputPath: undefined,
         modeOverride: undefined,
+        providerOverride: undefined,
         resumePath: "/repo/session.json",
       });
     expect(() => parseCliArguments(["/repo", "--resume"]))

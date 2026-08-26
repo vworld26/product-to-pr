@@ -6,7 +6,13 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
-import { implementApprovedPlan } from "./execute.js";
+import {
+  buildImplementationCommand,
+  implementApprovedPlan,
+  implementationRunnerFor,
+  runClaudeImplementation,
+  runCodexImplementation,
+} from "./execute.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -55,6 +61,29 @@ async function createFixture(): Promise<{
 }
 
 describe("implementApprovedPlan", () => {
+  it("builds bounded commands for Codex and Claude Code", () => {
+    expect(buildImplementationCommand("codex", "/repo")).toEqual({
+      command: "codex",
+      args: [
+        "exec", "--ephemeral", "--ignore-user-config", "--sandbox",
+        "workspace-write", "--cd", "/repo", "-",
+      ],
+      label: "Codex",
+    });
+    expect(buildImplementationCommand("claude", "/repo")).toEqual({
+      command: "claude",
+      args: [
+        "--print", "--no-session-persistence", "--safe-mode",
+        "--permission-mode", "acceptEdits", "--output-format", "text",
+        "--tools", "Read,Edit,Write,Glob,Grep",
+      ],
+      cwd: "/repo",
+      label: "Claude Code",
+    });
+    expect(implementationRunnerFor("codex")).toBe(runCodexImplementation);
+    expect(implementationRunnerFor("claude")).toBe(runClaudeImplementation);
+  });
+
   it("runs a scoped implementation without creating a commit", async () => {
     const fixture = await createFixture();
     let receivedPrompt = "";
