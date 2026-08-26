@@ -3,6 +3,7 @@ import { extname, join, relative } from "node:path";
 
 import { discoverRepositoryInstructions } from "./instructions.js";
 import type { RepositoryOverview } from "./plan.js";
+import { discoverVerification } from "./verify.js";
 
 type PackageJson = {
   description?: string;
@@ -237,26 +238,6 @@ function inferEntryPoints(paths: string[]): string[] {
     : ["No likely entry point identified from repository files."];
 }
 
-async function inferTestApproach(
-  repositoryPath: string,
-  paths: string[],
-): Promise<string[]> {
-  if (paths.includes("pytest.ini")) return ["pytest: python -m pytest"];
-  if (paths.includes("pyproject.toml")) {
-    const content = await readFile(join(repositoryPath, "pyproject.toml"), "utf8");
-    if (content.includes("[tool.pytest")) return ["pytest: python -m pytest"];
-  }
-  const possibleChecks = paths.filter((path) =>
-    /(?:^|\/)(?:check|test|verify)[\w-]*\.(?:js|py|sh)$/.test(path)
-  );
-  if (possibleChecks.length > 0) {
-    return [
-      `Possible check scripts were found (${possibleChecks.slice(0, 3).join(", ")}), but no repository configuration marks a command as safe to run automatically.`,
-    ];
-  }
-  return ["No safe automated verification command discovered."];
-}
-
 export async function inspectRepository(
   repositoryPath: string,
   featureRequest: string,
@@ -281,6 +262,17 @@ export async function inspectRepository(
     repositoryPath,
     featureRequest,
   );
+  const verification = await discoverVerification(repositoryPath);
+  const existingTestApproach = testScripts.length > 0
+    ? testScripts
+    : packageJson
+    ? ["No test script identified."]
+    : [];
+  const confidenceReason = verification.trustedCommands.length > 0
+    ? `${verification.trustedCommands.length} trusted command(s) can provide automated evidence.`
+    : verification.candidateCommands.length > 0
+    ? "Possible checks exist, but they still require repository trust or manual review."
+    : "No automated checks were found; verification will require manual review.";
 
   return {
     purpose: await readPurpose(repositoryPath, packageJson, searchablePaths),
@@ -292,12 +284,17 @@ export async function inspectRepository(
     entryPoints: packageJson
       ? findEntryPoints(scripts)
       : inferEntryPoints(searchablePaths),
-    testApproach:
-      testScripts.length > 0
-        ? testScripts
-        : packageJson
-        ? ["No test script identified."]
-        : await inferTestApproach(repositoryPath, searchablePaths),
+    testApproach: [
+      ...existingTestApproach,
+      ...verification.trustedCommands.map(
+        (command) => `Trusted verification: ${command.command}`,
+      ),
+      ...verification.candidateCommands.map(
+        (command) => `Possible but not trusted: ${command}`,
+      ),
+      `Verification confidence: ${verification.confidence} — ${confidenceReason}`,
+      ...verification.guidance,
+    ].filter((value, index, values) => values.indexOf(value) === index),
     instructionContext: await discoverRepositoryInstructions(
       repositoryPath,
       relevantFileSearch.files.map((file) => file.path),

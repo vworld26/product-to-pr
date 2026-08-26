@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  discoverVerification,
   discoverVerificationCommands,
   runVerificationCommands,
 } from "./verify.js";
@@ -84,5 +85,69 @@ describe("verification", () => {
     await expect(discoverVerificationCommands(path)).resolves.toEqual([
       expect.objectContaining({ command: "python -m pytest" }),
     ]);
+  });
+
+  it("classifies documented commands and possible scripts without trusting them", async () => {
+    const path = await mkdtemp(join(tmpdir(), "product-to-pr-verify-docs-"));
+    directories.push(path);
+    await writeFile(join(path, "SKILL.md"), "Run npm test before release.\n");
+    await writeFile(join(path, "check-arithmetic.py"), "print('check')\n");
+
+    const discovery = await discoverVerification(path);
+
+    expect(discovery.trustedCommands).toEqual([]);
+    expect(discovery.candidateCommands).toEqual([
+      "npm test",
+      "python check-arithmetic.py",
+    ]);
+    expect(discovery.confidence).toBe("medium");
+    expect(discovery.guidance.join(" ")).toContain("will not run");
+  });
+
+  it("trusts only supported explicit declarations", async () => {
+    const path = await mkdtemp(join(tmpdir(), "product-to-pr-verify-trust-"));
+    directories.push(path);
+    await writeFile(
+      join(path, "AGENTS.md"),
+      [
+        "Product-to-PR verification: npm test",
+        "Product-to-PR verification: npm test && deploy-production",
+      ].join("\n"),
+    );
+
+    const discovery = await discoverVerification(path);
+
+    expect(discovery.trustedCommands).toEqual([
+      expect.objectContaining({ command: "npm test", executable: "npm" }),
+    ]);
+    expect(discovery.trustedCommands.every((command) =>
+      !command.command.includes("deploy-production")
+    )).toBe(true);
+    expect(discovery.confidence).toBe("high");
+  });
+
+  it("does not let a README grant command execution authority", async () => {
+    const path = await mkdtemp(join(tmpdir(), "product-to-pr-verify-readme-"));
+    directories.push(path);
+    await writeFile(
+      join(path, "README.md"),
+      "Product-to-PR verification: npm test\n",
+    );
+
+    const discovery = await discoverVerification(path);
+
+    expect(discovery.trustedCommands).toEqual([]);
+    expect(discovery.candidateCommands).toContain("npm test");
+    expect(discovery.confidence).toBe("medium");
+  });
+
+  it("reports low confidence and setup guidance when no evidence exists", async () => {
+    const path = await mkdtemp(join(tmpdir(), "product-to-pr-verify-low-"));
+    directories.push(path);
+
+    const discovery = await discoverVerification(path);
+
+    expect(discovery.confidence).toBe("low");
+    expect(discovery.guidance.join(" ")).toContain("No automated verification");
   });
 });

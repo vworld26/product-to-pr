@@ -65,7 +65,7 @@ import {
   type WorkspaceChoice,
 } from "./repository.js";
 import { createLocalReview, formatLocalReview } from "./review.js";
-import { discoverVerificationCommands, runVerificationCommands } from "./verify.js";
+import { discoverVerification, runVerificationCommands } from "./verify.js";
 
 async function saveRequestedOutput(
   path: string,
@@ -371,10 +371,14 @@ try {
               "\nLocal changes are ready. No tests were run and nothing was committed or published.",
             );
 
-            const verificationCommands = await discoverVerificationCommands(
+            const verificationDiscovery = await discoverVerification(
               repositoryPath,
             );
-            console.log("\nVerification commands:");
+            const verificationCommands = verificationDiscovery.trustedCommands;
+            console.log(
+              `\nVerification confidence: ${verificationDiscovery.confidence}`,
+            );
+            console.log("Trusted verification commands:");
             if (verificationCommands.length > 0) {
               verificationCommands.forEach((command) =>
                 console.log(`- ${command.command}`)
@@ -382,6 +386,15 @@ try {
             } else {
               console.log("- No safe automated verification commands were discovered.");
             }
+            if (verificationDiscovery.candidateCommands.length > 0) {
+              console.log("Possible commands that will not run automatically:");
+              verificationDiscovery.candidateCommands.forEach((command) =>
+                console.log(`- ${command}`)
+              );
+            }
+            verificationDiscovery.guidance.forEach((guidance) =>
+              console.log(`- ${guidance}`)
+            );
             let verificationChoice: VerificationChoice = "verify";
             if (pausesBeforeRoutineWork(operatingMode)) {
               let guidedVerificationChoice: VerificationChoice | undefined;

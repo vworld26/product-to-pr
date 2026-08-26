@@ -122,6 +122,15 @@ pytest commands may be offered, but arbitrary Shell files are never executed
 just because their names sound like checks. If no safe command is found, the
 product reports that limitation and blocks publication.
 
+Verification discovery separates three states: trusted commands that may run
+after approval, possible checks that remain visible but cannot run, and no
+available automated evidence. A repository can declare a supported trusted
+command with `Product-to-PR verification:` in `AGENTS.md` or `SKILL.md`.
+Declarations pass through a narrow parser, so adding shell operators or an
+arbitrary executable does not grant execution authority. The resulting high,
+medium, or low confidence describes automated evidence—not overall product
+quality—and manual review remains necessary where evidence is incomplete.
+
 ## First exercise
 
 Add a `Dependencies` section to `ProductPlan`, populate it in `createProductPlan`, render it in `formatPlan`, and update the test. Make the work on a new Git branch.
