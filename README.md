@@ -9,6 +9,9 @@ committing, pushing, and pull-request creation as separate decisions.
 It begins by restating a short request in plain language, then asks focused
 questions about the user, desired behavior, configurable choices, outputs, and
 boundaries before turning those decisions into technical implementation work.
+Low-risk, reversible recommendations are shown together so the user can accept
+all, review them individually, or decline them. Material scope, user, data,
+safety, and outcome decisions remain separate questions.
 
 ## What it produces
 
