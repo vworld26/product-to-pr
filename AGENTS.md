@@ -7,6 +7,14 @@ For Product-to-PR work:
 1. Before substantial implementation, explain the bounded feature scope,
    approach, acceptance criteria, and meaningful tradeoffs.
 2. Ask for explicit approval of that feature scope and wait before proceeding.
+   As part of that approval, ask the user to choose a development delivery pace
+   for the feature:
+   - **Step-by-step** — pause separately before commit, push, pull request, and
+     merge.
+   - **Accelerated** — after scope approval, continue through the accelerated
+     delivery protocol below when its safety conditions are satisfied.
+   The choice applies only to the named feature or explicitly named sequence;
+   ask again for materially different work.
 3. After scope approval, routine inspection, branch creation, editing, and
    testing may proceed without additional approval stops.
 4. Briefly teach important concepts and report meaningful milestones while
@@ -50,6 +58,17 @@ unreviewable work. Those actions require separate explicit approval.
 
 Accelerated delivery applies only to the named batch or sequence. New or
 materially different work requires a new scope approval.
+
+## Product modes versus development delivery pace
+
+Development delivery pace governs how an agent changes this Product-to-PR
+repository. It is not a Product-to-PR end-user operating mode.
+
+The product's **Guide me**, **Build with me**, and **Take the lead** modes control
+how much explanation and how many routine pauses a Product-to-PR user receives.
+They retain their existing approval, publication, review-handoff, and no-merge
+boundaries. Do not silently map Accelerated development delivery to a product
+mode or broaden a product user's authority.
 
 ## Commit messages
 
