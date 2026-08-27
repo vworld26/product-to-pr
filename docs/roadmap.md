@@ -115,6 +115,27 @@ Candidate capabilities:
   unintended scope; and
 - configurable policy gates for higher-risk repositories or changes.
 
+## Later: launch and adoption
+
+**Outcome:** New product contributors can understand Product-to-PR, learn the
+workflow through practice, and decide confidently whether it fits their work.
+
+Candidate capabilities:
+
+- a public website that explains the product, its safety model, and the
+  learning journey;
+- tutorials, exercises, and worked examples for users with limited technical
+  experience;
+- blog posts and reusable learning content derived from shipped features and
+  dogfooding lessons;
+- structured feedback channels and community participation; and
+- responsible promotion and adoption experiments grounded in demonstrated
+  product outcomes rather than generated-output volume.
+
+This workstream should reuse evidence from real product use. It should not
+present proposed capabilities as available or accelerate adoption ahead of
+reliable implementation, verification, and recovery.
+
 ## Explore: team workflows and integrations
 
 **Outcome:** Product and engineering teams can adapt the workflow to their
