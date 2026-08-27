@@ -111,8 +111,13 @@ The product is succeeding when:
 
 ## Current focus
 
-The current product establishes the planning and approval foundation: repository
-inspection, instruction discovery, Codex-assisted reasoning, specification
-review, safe specification output, and isolated branch creation. The next focus
-is closing the gap between an approved specification and a verified,
-review-ready implementation while preserving the same explicit control model.
+The current product supports the complete local journey from repository-aware
+discovery and specification through approved implementation, verification,
+review evidence, and a review-ready pull request. It preserves explicit control
+over consequential actions and can use Codex, Claude Code, or a provider-neutral
+manual handoff for implementation.
+
+The current focus is proving that journey through real dogfooding, quality
+evaluation, stronger recovery, and independent critique. Team integrations and
+launch-and-adoption work should follow after the core workflow demonstrates
+consistent, recoverable results.
