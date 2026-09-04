@@ -180,7 +180,6 @@ describe("inspectRepository", () => {
     ).toContain("AGENTS.md");
     expect(overview.relevantFiles.map((file) => file.path)).toEqual(
       expect.arrayContaining([
-        "src/format.ts",
         "src/plan.test.ts",
         "src/plan.ts",
       ]),

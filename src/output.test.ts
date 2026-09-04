@@ -34,6 +34,8 @@ describe("parseCliArguments", () => {
       modeOverride: undefined,
       providerOverride: undefined,
       resumePath: undefined,
+      forcePreflight: false,
+      clearPreflightHistory: false,
     });
   });
 
@@ -45,6 +47,8 @@ describe("parseCliArguments", () => {
       modeOverride: undefined,
       providerOverride: undefined,
       resumePath: undefined,
+      forcePreflight: false,
+      clearPreflightHistory: false,
     });
   });
 
@@ -58,6 +62,8 @@ describe("parseCliArguments", () => {
       modeOverride: "build-with-me",
       providerOverride: undefined,
       resumePath: undefined,
+      forcePreflight: false,
+      clearPreflightHistory: false,
     });
     expect(() => parseCliArguments([".", "Feature", "--mode", "fast"]))
       .toThrow("must be guide, build-with-me, take-the-lead, or choose");
@@ -73,6 +79,8 @@ describe("parseCliArguments", () => {
       modeOverride: undefined,
       providerOverride: "claude",
       resumePath: undefined,
+      forcePreflight: false,
+      clearPreflightHistory: false,
     });
     expect(() => parseCliArguments([".", "Feature", "--provider", "other-model"]))
       .toThrow("must be codex, claude, or manual");
@@ -93,9 +101,20 @@ describe("parseCliArguments", () => {
         modeOverride: undefined,
         providerOverride: undefined,
         resumePath: "/repo/session.json",
+        forcePreflight: false,
+        clearPreflightHistory: false,
       });
     expect(() => parseCliArguments(["/repo", "--resume"]))
       .toThrow("requires a session filename");
+  });
+
+  it("supports forced preflight and clearing saved readiness history", () => {
+    expect(parseCliArguments(["/repo", "Feature", "--preflight"]))
+      .toMatchObject({ forcePreflight: true, clearPreflightHistory: false });
+    expect(parseCliArguments(["/repo", "Feature", "--clear-preflight-history"]))
+      .toMatchObject({ forcePreflight: true, clearPreflightHistory: true });
+    expect(() => parseCliArguments(["/repo", "Feature", "--preflight", "--preflight"]))
+      .toThrow("can only be used once");
   });
 });
 

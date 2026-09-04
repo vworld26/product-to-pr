@@ -47,6 +47,29 @@ export function usesConciseRoutineUpdates(mode: OperatingMode): boolean {
   return mode === "take-the-lead";
 }
 
+export const buildWithMeOfferExplanation =
+  "Build with me will combine routine implementation and verification, with less explanation between them. It will not remove approvals for scope changes, commits, pushes, pull requests, merges, deletion, or other consequential actions.";
+
+export function requestsBuildWithMe(input: string): boolean {
+  const request = input.trim().toLowerCase().replace(/\s+/g, " ");
+  return request === "faster" ||
+    /\b(go|move|work) faster\b/.test(request) ||
+    /\bspeed (this|things|it) up\b/.test(request) ||
+    /\bfewer (explanations|pauses|questions)\b/.test(request) ||
+    /\bless (explanation|explaining|guidance)\b/.test(request) ||
+    /\btoo many (pauses|questions|explanations)\b/.test(request) ||
+    /\bmore automated\b/.test(request);
+}
+
+export function parseBuildWithMeOfferChoice(
+  input: string,
+): "accept" | "decline" | undefined {
+  const choice = input.trim().toLowerCase();
+  if (["y", "yes", "a", "accept"].includes(choice)) return "accept";
+  if (["n", "no", "d", "decline"].includes(choice)) return "decline";
+  return undefined;
+}
+
 export function parseModeChoice(input: string): ModeChoice | undefined {
   const mode = parseOperatingMode(input);
   if (mode) return mode;

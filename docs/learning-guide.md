@@ -16,6 +16,12 @@
 - `src/repository.ts` prepares an approved temporary folder for a GitHub URL.
 - `src/handoff.ts` records who is responsible for pull-request review.
 - `src/mode.ts` stores how much routine guidance the user wants.
+- `src/preflight.ts` performs fixed, read-only readiness checks and explains the
+  evidence.
+- `src/preflight-flow.ts` guides provider choice, remediation, reruns, and one
+  combined risk confirmation.
+- `src/readiness-history.ts` keeps privacy-conscious device-level readiness and
+  completed-session counts outside repositories.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -91,6 +97,26 @@ user gives it to another AI, and then rejoins the same validation flow. It
 stops before tests, commits, pushes, or pull requests so each later action
 remains a separate decision.
 
+### Readiness before repository planning
+
+The interactive workflow selects the intended implementation provider and runs
+preflight before inspecting or sending repository context for planning. Fixed
+checks can inspect Codex or Claude Code, but an unknown AI tool is never
+executed. Instead, the user confirms a manual checklist and later receives the
+same provider-neutral implementation handoff.
+
+Readiness has four evidence labels: Passed, Needs attention, Could not verify,
+and User confirmed. A blocker means the selected workflow cannot safely work;
+other risks are explained and accepted together. Rerunning repeats only the
+same read-only checks and never installs software or changes settings.
+
+The small global history file uses hashes instead of repository paths or
+specification text. An approved specification, completed local review, and
+authorized pull-request handoff all refer to the same session identifier, so
+the earliest milestone counts once and later milestones or resumed copies do
+not count again. Repository-specific checks still run for a newly encountered
+repository, and another check is offered after five more completed sessions.
+
 ### Verification and review
 
 Product-to-PR shows the exact repository commands it can run and waits for a
@@ -136,6 +162,11 @@ changing branch isolation, verification evidence, or approval boundaries.
 - **Take the lead** — Move through routine work with less explanation while preserving safety stops.
 
 Consequential actions remain separate choices in every mode.
+
+An explicit request for faster progress or fewer routine pauses may produce one
+informed Build with me offer during a Guide me session. Product-to-PR does not
+infer emotion from writing style, does not switch automatically, and does not
+repeat a declined offer during that session.
 
 The product asks about this after specification approval, when the user has
 enough context to understand what they are authorizing. A saved repository

@@ -185,6 +185,15 @@ describe("guided preflight", () => {
     expect(output).toContain("## Rerun");
   });
 
+  it("does not treat Product-to-PR's own saved state as product work", async () => {
+    const { runner } = successfulRunner({
+      "git -C /repo status --porcelain": "?? .product-to-pr/",
+    });
+    const report = await runPreflight({ repositoryPath: "/repo", provider: "codex", runner });
+    expect(report.results.find((item) => item.id === "repository-worktree")).toMatchObject({ status: "Passed" });
+    expect(report.results.find((item) => item.id === "repository-worktree")?.explanation).toContain("saved state is ignored");
+  });
+
   it("does not include passing, blocking, or user-confirmed items in combined risks", async () => {
     const { runner } = successfulRunner();
     const confirmations = Object.fromEntries(manualAiChecklist.map((item) => [item.id, true]));

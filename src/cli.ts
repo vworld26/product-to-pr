@@ -39,10 +39,13 @@ import {
 } from "./implementation.js";
 import { inspectRepository } from "./inspect.js";
 import {
+  buildWithMeOfferExplanation,
   loadOperatingMode,
   operatingModes,
+  parseBuildWithMeOfferChoice,
   parseModeChoice,
   pausesBeforeRoutineWork,
+  requestsBuildWithMe,
   saveOperatingMode,
   type ModeChoice,
   type OperatingMode,
@@ -54,11 +57,10 @@ import {
   writeOutputFile,
 } from "./output.js";
 import { createProductPlan, type ProductReasoning } from "./plan.js";
+import { runGuidedPreflight } from "./preflight-flow.js";
 import {
   assertImplementationProviderReady,
   implementationProviders,
-  parseImplementationProvider,
-  type ImplementationProvider,
 } from "./provider.js";
 import {
   commitReviewedChanges,
@@ -84,6 +86,10 @@ import {
 } from "./repository.js";
 import { createLocalReview, formatLocalReview } from "./review.js";
 import {
+  completedSessionId,
+  recordCompletedSession,
+} from "./readiness-history.js";
+import {
   loadResumableSession,
   managedWorkspaceDeletionWarning,
   saveResumableSession,
@@ -91,6 +97,8 @@ import {
   type LoadedSession,
 } from "./session.js";
 import { discoverVerification, runVerificationCommands } from "./verify.js";
+
+class PreflightStopped extends Error {}
 
 async function saveRequestedOutput(
   path: string,
@@ -126,6 +134,8 @@ try {
     modeOverride,
     providerOverride,
     resumePath,
+    forcePreflight,
+    clearPreflightHistory,
   } =
     parseCliArguments(process.argv.slice(2));
   let featureRequest = requestedFeature;
@@ -139,6 +149,11 @@ try {
   }
 
   const interactive = process.stdin.isTTY && process.stdout.isTTY;
+  if ((forcePreflight || clearPreflightHistory) && !interactive) {
+    throw new Error(
+      "Preflight requires an interactive run so blockers and risks remain explicit.",
+    );
+  }
   if (parseGitHubRepositoryUrl(repositoryInput) && !interactive) {
     throw new Error(
       "GitHub URLs require an interactive run so you can approve the temporary working folder. A local repository path still works non-interactively.",
@@ -204,39 +219,94 @@ try {
   if (resumePath && !interactive) {
     throw new Error("Resuming requires an interactive run so continuation choices remain explicit.");
   }
-  let resumeSession: LoadedSession | undefined = resumePath
-    ? await loadResumableSession(resumePath, repositoryPath)
-    : undefined;
-  if (resumeSession) featureRequest = resumeSession.featureRequest;
-  const repositoryOverview = resumeSession?.plan.repositoryOverview ??
-    await inspectRepository(repositoryPath, featureRequest);
-  let reasoning: ProductReasoning = resumeSession
-    ? {
-      title: resumeSession.plan.title,
-      summary: resumeSession.plan.summary,
-      recommendedDefaults: [],
-      clarifyingQuestions: resumeSession.plan.clarifyingQuestions,
-      productDecisions: resumeSession.plan.productDecisions,
-      dependencies: resumeSession.plan.dependencies,
-      acceptanceCriteria: resumeSession.plan.acceptanceCriteria,
-      implementationSteps: resumeSession.plan.implementationSteps,
-      risks: resumeSession.plan.risks,
-      testPlan: resumeSession.plan.testPlan,
-    }
-    : await reasonAboutFeature(
-      repositoryPath,
-      featureRequest,
-      repositoryOverview,
-    );
+  let resumeSession: LoadedSession | undefined;
   if (interactive) {
     const terminal = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
     const answers: string[] = [];
-    let activeSessionPath = resumeSession?.sessionPath;
+    let activeSessionPath: string | undefined;
+    let buildWithMeOffered = false;
 
     try {
+      const preflight = await runGuidedPreflight({
+        repositoryPath,
+        providerOverride,
+        force: forcePreflight,
+        clearHistory: clearPreflightHistory,
+        conversation: {
+          ask: (prompt) => terminal.question(prompt),
+          write: (message) => console.log(message),
+        },
+      });
+      if (!preflight.proceed) {
+        console.log("\nStopped before repository planning. No repository files or settings were changed.");
+        throw new PreflightStopped();
+      }
+      const implementationProvider = preflight.provider;
+      resumeSession = resumePath
+        ? await loadResumableSession(resumePath, repositoryPath)
+        : undefined;
+      if (resumeSession) featureRequest = resumeSession.featureRequest;
+      activeSessionPath = resumeSession?.sessionPath;
+      const repositoryOverview = resumeSession?.plan.repositoryOverview ??
+        await inspectRepository(repositoryPath, featureRequest);
+      let reasoning: ProductReasoning = resumeSession
+        ? {
+          title: resumeSession.plan.title,
+          summary: resumeSession.plan.summary,
+          recommendedDefaults: [],
+          clarifyingQuestions: resumeSession.plan.clarifyingQuestions,
+          productDecisions: resumeSession.plan.productDecisions,
+          dependencies: resumeSession.plan.dependencies,
+          acceptanceCriteria: resumeSession.plan.acceptanceCriteria,
+          implementationSteps: resumeSession.plan.implementationSteps,
+          risks: resumeSession.plan.risks,
+          testPlan: resumeSession.plan.testPlan,
+        }
+        : await reasonAboutFeature(
+          repositoryPath,
+          featureRequest,
+          repositoryOverview,
+        );
+
+      const recordCurrentSession = async (): Promise<void> => {
+        if (!resumeSession) return;
+        try {
+          const progress = await recordCompletedSession(completedSessionId(
+            resumeSession.repository.path,
+            resumeSession.specification.digest,
+          ));
+          if (progress.newlyCounted) {
+            console.log(`Learning progress: ${progress.count} completed Product-to-PR session(s).`);
+          }
+        } catch (error) {
+          console.log(
+            `Learning progress could not be saved: ${error instanceof Error ? error.message : "unknown error"}`,
+          );
+        }
+      };
+
+      const maybeOfferBuildWithMe = async (
+        input: string,
+        currentMode: OperatingMode = "guide",
+      ): Promise<"accepted" | "declined" | "not-offered"> => {
+        if (currentMode !== "guide" || buildWithMeOffered || !requestsBuildWithMe(input)) {
+          return "not-offered";
+        }
+        buildWithMeOffered = true;
+        console.log(`\n${buildWithMeOfferExplanation}`);
+        let choice: ReturnType<typeof parseBuildWithMeOfferChoice>;
+        while (!choice) {
+          choice = parseBuildWithMeOfferChoice(
+            await terminal.question("Switch to Build with me for this repository? [Y/N]\n> "),
+          );
+          if (!choice) console.log("Please enter yes or no.");
+        }
+        return choice === "accept" ? "accepted" : "declined";
+      };
+
       if (resumeSession) {
         console.log("\nResuming an approved Product-to-PR specification.");
         console.log(`Saved: ${resumeSession.createdAt}`);
@@ -410,6 +480,7 @@ try {
             activeSessionPath = resumeSession.sessionPath;
             console.log(`Resumable session saved to ${activeSessionPath}`);
           }
+          await recordCurrentSession();
           console.log("\nYour approved specification:\n");
           console.log(specification);
           console.log("No product code was changed.");
@@ -436,9 +507,14 @@ try {
             console.log("[S] Stop here — keep the approved specification for later.");
             let modeChoice: ModeChoice | undefined;
             while (!modeChoice) {
-              modeChoice = parseModeChoice(await terminal.question("> "));
+              const answer = await terminal.question("> ");
+              modeChoice = parseModeChoice(answer);
               if (!modeChoice) {
-                console.log("Please enter guide, build with me, take the lead, or stop.");
+                const offer = await maybeOfferBuildWithMe(answer);
+                if (offer === "accepted") modeChoice = "build-with-me";
+                else if (offer === "not-offered") {
+                  console.log("Please enter guide, build with me, take the lead, or stop.");
+                }
               }
             }
             if (modeChoice === "stop") {
@@ -465,52 +541,30 @@ try {
           if (pausesBeforeRoutineWork(operatingMode)) {
             let guidedBuildChoice: BuildChoice | undefined;
             while (!guidedBuildChoice) {
-              guidedBuildChoice = parseBuildChoice(
-                await terminal.question(
-                  "\nChoose [B]uild now or [S]top after the specification:\n> ",
-                ),
+              const answer = await terminal.question(
+                "\nChoose [B]uild now or [S]top after the specification:\n> ",
               );
+              guidedBuildChoice = parseBuildChoice(answer);
               if (!guidedBuildChoice) {
-                console.log("Please enter build or stop.");
+                const offer = await maybeOfferBuildWithMe(answer, operatingMode);
+                if (offer === "accepted") {
+                  operatingMode = "build-with-me";
+                  await saveOperatingMode(repositoryPath, operatingMode);
+                  if (resumeSession) {
+                    resumeSession = await saveSessionOperatingMode(resumeSession, operatingMode);
+                  }
+                  console.log("\nBuild with me is now active for this repository.");
+                  guidedBuildChoice = "build";
+                } else if (offer === "not-offered") {
+                  console.log("Please enter build or stop.");
+                }
               }
             }
             buildChoice = guidedBuildChoice;
           }
 
           if (buildChoice === "build") {
-            let implementationProvider: ImplementationProvider | undefined =
-              providerOverride;
-            if (implementationProvider) {
-              await assertImplementationProviderReady(implementationProvider);
-            } else {
-              while (!implementationProvider) {
-                console.log("\nWhich AI should implement the approved change?");
-                console.log(
-                  `[C] ${implementationProviders.codex.label} — ${implementationProviders.codex.description}`,
-                );
-                console.log(
-                  `[L] ${implementationProviders.claude.label} — ${implementationProviders.claude.description}`,
-                );
-                console.log(
-                  `[M] ${implementationProviders.manual.label} — ${implementationProviders.manual.description}`,
-                );
-                const selected = parseImplementationProvider(
-                  await terminal.question("> "),
-                );
-                if (!selected) {
-                  console.log("Please enter Codex, Claude, or manual.");
-                  continue;
-                }
-                try {
-                  await assertImplementationProviderReady(selected);
-                  implementationProvider = selected;
-                } catch (error) {
-                  console.log(
-                    error instanceof Error ? error.message : "The provider is unavailable.",
-                  );
-                }
-              }
-            }
+            await assertImplementationProviderReady(implementationProvider);
 
             const branchName = await createImplementationBranch(
               repositoryPath,
@@ -588,11 +642,21 @@ try {
             if (pausesBeforeRoutineWork(operatingMode)) {
               let guidedVerificationChoice: VerificationChoice | undefined;
               while (!guidedVerificationChoice) {
-                guidedVerificationChoice = parseVerificationChoice(
-                  await terminal.question("\nChoose [V]erify or [S]top here:\n> "),
-                );
+                const answer = await terminal.question("\nChoose [V]erify or [S]top here:\n> ");
+                guidedVerificationChoice = parseVerificationChoice(answer);
                 if (!guidedVerificationChoice) {
-                  console.log("Please enter verify or stop.");
+                  const offer = await maybeOfferBuildWithMe(answer, operatingMode);
+                  if (offer === "accepted") {
+                    operatingMode = "build-with-me";
+                    await saveOperatingMode(repositoryPath, operatingMode);
+                    if (resumeSession) {
+                      resumeSession = await saveSessionOperatingMode(resumeSession, operatingMode);
+                    }
+                    console.log("\nBuild with me is now active for this repository.");
+                    guidedVerificationChoice = "verify";
+                  } else if (offer === "not-offered") {
+                    console.log("Please enter verify or stop.");
+                  }
                 }
               }
               verificationChoice = guidedVerificationChoice;
@@ -607,14 +671,11 @@ try {
                 plan,
                 verification,
               );
+              await recordCurrentSession();
               console.log(`\n${formatLocalReview(review)}`);
               console.log("\nNothing was committed or published.");
 
-              if (operatingMode === "guide") {
-                console.log(
-                  "\nYou completed a guided local change. Use --mode build-with-me next time when you want routine implementation and verification to flow together.",
-                );
-              } else if (operatingMode === "build-with-me") {
+              if (operatingMode === "build-with-me") {
                 console.log(
                   "\nBuild with me is active. When this level feels comfortable, you can try --mode take-the-lead for a quieter routine workflow.",
                 );
@@ -683,6 +744,7 @@ try {
                         review,
                         handoff,
                       );
+                      await recordCurrentSession();
                       console.log(`\nPull request opened: ${url}`);
                       if (handoff.reviewer) {
                         await requestPullRequestReview(
@@ -736,6 +798,8 @@ try {
           answers,
         );
       }
+    } catch (error) {
+      if (!(error instanceof PreflightStopped)) throw error;
     } finally {
       if (preparedRepository.source === "github") {
         let workspaceChoice: WorkspaceChoice | undefined;
@@ -760,6 +824,12 @@ try {
       terminal.close();
     }
   } else {
+    const repositoryOverview = await inspectRepository(repositoryPath, featureRequest);
+    const reasoning = await reasonAboutFeature(
+      repositoryPath,
+      featureRequest,
+      repositoryOverview,
+    );
     const plan = createProductPlan(
       featureRequest,
       repositoryOverview,

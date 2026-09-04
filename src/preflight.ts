@@ -240,13 +240,17 @@ export async function runPreflight(options: PreflightOptions): Promise<Preflight
       branchName ? `The current branch is ${branchName}.` : "No current branch was found; a detached HEAD cannot support the normal workflow.",
       branchName ? "No action needed." : "Check out the intended working branch, then rerun preflight.",
     ));
-    const dirty = !(work instanceof Error) && work.stdout.trim().length > 0;
+    const productStateExcluded = work instanceof Error ? [] : work.stdout
+      .split("\n")
+      .filter(Boolean)
+      .filter((line) => !line.slice(3).startsWith(".product-to-pr/"));
+    const dirty = !(work instanceof Error) && productStateExcluded.length > 0;
     results.push(result(
       "repository-worktree", "Uncommitted work", "Repository",
       work instanceof Error ? "Could not verify" : dirty ? "Needs attention" : "Passed", false,
       work instanceof Error ? `Uncommitted work could not be checked: ${errorText(work)}` : dirty
         ? "The repository has uncommitted changes. They may be intentional, but new work could overlap them."
-        : "The working tree has no uncommitted changes.",
+        : "The working tree has no uncommitted product changes. Product-to-PR's own saved state is ignored.",
       work instanceof Error || dirty ? "Review and safely resolve or preserve the existing changes, then rerun preflight." : "No action needed.",
     ));
   } else {

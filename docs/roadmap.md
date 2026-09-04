@@ -47,6 +47,20 @@ and inspect a verified local diff before anything is published.
 
 Current capabilities:
 
+- run a guided, read-only readiness check before the first planning session for
+  each repository and selected AI provider;
+- distinguish workflow blockers, accepted non-blocking risks, unavailable
+  evidence, and user-confirmed checks with beginner-friendly next actions;
+- support Codex and Claude Code automatic checks plus a non-executing manual
+  checklist for other AI tools;
+- keep privacy-conscious readiness and completed-session history outside
+  repositories, without credentials, tokens, repository content, or
+  conversations;
+- offer another readiness check after five qualifying sessions without
+  double-counting reruns or resumed sessions; and
+- offer Build with me only after an explicit request for fewer routine pauses,
+  requiring confirmation and preserving every consequential approval.
+
 - bind implementation to the exact approved specification and repository state;
 - translate acceptance criteria into a scoped implementation checklist;
 - offer Codex, Claude Code, and provider-neutral manual implementation choices
