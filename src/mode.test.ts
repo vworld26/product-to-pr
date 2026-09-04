@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildWithMeOfferExplanation,
   loadOperatingMode,
   operatingModes,
+  parseBuildWithMeOfferChoice,
   parseModeChoice,
   parseOperatingMode,
   pausesBeforeRoutineWork,
+  requestsBuildWithMe,
   saveOperatingMode,
   usesConciseRoutineUpdates,
 } from "./mode.js";
@@ -62,5 +65,16 @@ describe("operating modes", () => {
     } finally {
       await rm(repositoryPath, { recursive: true, force: true });
     }
+  });
+
+  it("recognizes explicit requests for fewer routine pauses without inferring from feature wording", () => {
+    expect(requestsBuildWithMe("Can we go faster?")).toBe(true);
+    expect(requestsBuildWithMe("There are too many questions")).toBe(true);
+    expect(requestsBuildWithMe("I want fewer explanations")).toBe(true);
+    expect(requestsBuildWithMe("Make the website faster")).toBe(false);
+    expect(requestsBuildWithMe("The feature automates reports")).toBe(false);
+    expect(parseBuildWithMeOfferChoice("yes")).toBe("accept");
+    expect(parseBuildWithMeOfferChoice("no")).toBe("decline");
+    expect(buildWithMeOfferExplanation).toContain("will not remove approvals");
   });
 });

@@ -14,6 +14,8 @@ export type CliArguments = {
   modeOverride?: OperatingMode | "choose";
   providerOverride?: ImplementationProvider;
   resumePath?: string;
+  forcePreflight: boolean;
+  clearPreflightHistory: boolean;
 };
 
 export class MissingOutputDirectoryError extends Error {
@@ -29,9 +31,26 @@ export function parseCliArguments(args: string[]): CliArguments {
   let modeOverride: OperatingMode | "choose" | undefined;
   let providerOverride: ImplementationProvider | undefined;
   let resumePath: string | undefined;
+  let forcePreflight = false;
+  let clearPreflightHistory = false;
 
   for (let index = 0; index < remaining.length; index += 1) {
     const argument = remaining[index];
+
+    if (argument === "--preflight") {
+      if (forcePreflight) throw new Error("The --preflight option can only be used once.");
+      forcePreflight = true;
+      continue;
+    }
+
+    if (argument === "--clear-preflight-history") {
+      if (clearPreflightHistory) {
+        throw new Error("The --clear-preflight-history option can only be used once.");
+      }
+      clearPreflightHistory = true;
+      forcePreflight = true;
+      continue;
+    }
 
     if (argument === "--mode") {
       if (modeOverride !== undefined) {
@@ -111,6 +130,8 @@ export function parseCliArguments(args: string[]): CliArguments {
     modeOverride,
     providerOverride,
     resumePath,
+    forcePreflight,
+    clearPreflightHistory,
   };
 }
 
