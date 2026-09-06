@@ -22,6 +22,12 @@
   combined risk confirmation.
 - `src/readiness-history.ts` keeps privacy-conscious device-level readiness and
   completed-session counts outside repositories.
+- `src/evaluation.ts` defines the canonical specification and implementation
+  rubrics and explains the evidence behind each score.
+- `src/evaluation-fixtures.ts` contains deterministic examples that should pass
+  or need improvement.
+- `src/evaluation-live.ts` runs explicitly requested model checks against
+  synthetic evidence in a temporary folder.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -60,6 +66,23 @@ are always asked separately.
 ### Test
 
 A test runs code with a known input and checks the result. Tests help detect accidental behavior changes.
+
+### Evaluation
+
+A test proves that code behaves as expected for a known case. An evaluation
+measures a quality judgment that can have degrees, such as whether a summary is
+clear to a beginner or whether a plan is grounded in repository evidence.
+
+Product-to-PR uses canonical rubrics so the same standards apply to every plan
+and implementation review. Every result includes a zero-to-two rating, the
+standard being measured, and concrete evidence. The total is only a summary;
+one zero-score safety or quality finding still prevents the evaluation from
+passing.
+
+Deterministic fixtures run offline during normal testing. The live harness is a
+separate opt-in command, uses synthetic repository evidence, and runs from an
+isolated temporary folder so evaluating model behavior does not expose the
+working repository.
 
 ### Build
 

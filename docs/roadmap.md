@@ -38,7 +38,11 @@ Current capabilities include:
 - creation of an isolated implementation branch after separate approval;
 - automated pull-request checks for type checking and tests; and
 - trusted, candidate, and unavailable verification classification with
-  confidence and safe command-declaration guidance.
+  confidence and safe command-declaration guidance;
+- canonical, evidence-backed rubrics for specification and implementation
+  quality; and
+- deterministic evaluation fixtures plus a separate opt-in live-model harness
+  that uses synthetic repository evidence.
 
 ## Available: approved plan to verified local change
 
@@ -118,11 +122,6 @@ and changes, and can recover safely when it does not.
 Candidate capabilities:
 
 - richer autonomy policies for safe retries and repository-specific risk levels;
-- evaluation fixtures for specification quality, repository grounding, scope
-  control, and acceptance-criteria coverage;
-- a live-model evaluation suite that measures whether generated titles,
-  non-technical summaries, adaptive questions, and decision-source labels
-  consistently follow the discovery contract;
 - structured event logs with sensitive-data boundaries;
 - bounded retries and resumable stages for transient failures;
 - independent review of plans and diffs for contradictions, omissions, and

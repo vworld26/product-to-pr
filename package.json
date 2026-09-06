@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
+    "evaluate": "node --import tsx src/evaluation-cli.ts",
+    "evaluate:live": "node --import tsx src/evaluation-cli.ts --live",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit"
   },
