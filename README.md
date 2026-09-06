@@ -124,6 +124,27 @@ npm run typecheck
 npm test
 ```
 
+Run the deterministic quality fixtures without contacting an AI service:
+
+```bash
+npm run evaluate
+```
+
+The canonical rubric evaluates beginner clarity, repository grounding,
+requirement discipline, observable acceptance criteria, verification evidence,
+scope control, reviewability, and recovery guidance. Product-to-PR shows the
+finding and evidence behind every score. These evaluations are advisory; they
+do not silently approve or reject work.
+
+Live evaluation is always a separate opt-in action:
+
+```bash
+npm run evaluate:live
+```
+
+The live harness sends synthetic fixture content to Codex from an isolated
+temporary folder. Normal tests and `npm run evaluate` never invoke an AI.
+
 ## Supported repositories
 
 Product-to-PR inspects Node repositories with `package.json` and mixed-language

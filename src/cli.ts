@@ -32,6 +32,11 @@ import {
   implementationRunnerFor,
   type ImplementationRunner,
 } from "./execute.js";
+import {
+  evaluateImplementation,
+  evaluateSpecification,
+  formatEvaluationReport,
+} from "./evaluation.js";
 import { formatPlan } from "./format.js";
 import {
   createManualImplementationRunner,
@@ -426,6 +431,8 @@ try {
         );
         const specification = resumeSession?.specification.content ?? formatPlan(plan);
         console.log(`\n${specification}`);
+        console.log("\nAdvisory quality evaluation:\n");
+        console.log(formatEvaluationReport(evaluateSpecification(plan)));
 
         let choice: ReviewChoice | undefined = resumeSession ? "approve" : undefined;
         while (!choice) {
@@ -673,6 +680,8 @@ try {
               );
               await recordCurrentSession();
               console.log(`\n${formatLocalReview(review)}`);
+              console.log("\nAdvisory quality evaluation:\n");
+              console.log(formatEvaluationReport(evaluateImplementation(plan, review)));
               console.log("\nNothing was committed or published.");
 
               if (operatingMode === "build-with-me") {
@@ -837,6 +846,8 @@ try {
     );
     const specification = formatPlan(plan);
     console.log(specification);
+    console.log("\nAdvisory quality evaluation:\n");
+    console.log(formatEvaluationReport(evaluateSpecification(plan)));
     if (outputPath) {
       await saveRequestedOutput(outputPath, specification);
       console.log(`\nPlan saved to ${outputPath}`);
