@@ -40,9 +40,13 @@ Current capabilities include:
 - trusted, candidate, and unavailable verification classification with
   confidence and safe command-declaration guidance;
 - canonical, evidence-backed rubrics for specification and implementation
-  quality; and
+  quality;
 - deterministic evaluation fixtures plus a separate opt-in live-model harness
-  that uses synthetic repository evidence.
+  that uses synthetic repository evidence;
+- optional, explicitly consented critique of plans and implementations by a
+  different read-only model, with provider-neutral fallback instructions; and
+- privacy-conscious quality event logs containing hashes and bounded metadata,
+  never repository contents, prompts, diffs, credentials, or tokens.
 
 ## Available: approved plan to verified local change
 
@@ -122,10 +126,7 @@ and changes, and can recover safely when it does not.
 Candidate capabilities:
 
 - richer autonomy policies for safe retries and repository-specific risk levels;
-- structured event logs with sensitive-data boundaries;
 - bounded retries and resumable stages for transient failures;
-- independent review of plans and diffs for contradictions, omissions, and
-  unintended scope; and
 - configurable policy gates for higher-risk repositories or changes.
 
 ## Later: launch and adoption

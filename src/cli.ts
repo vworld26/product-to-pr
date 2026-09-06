@@ -37,6 +37,15 @@ import {
   evaluateSpecification,
   formatEvaluationReport,
 } from "./evaluation.js";
+import {
+  buildImplementationCritiquePrompt,
+  buildSpecificationCritiquePrompt,
+} from "./critique.js";
+import { runCritiqueFlow, type CritiqueFlowResult } from "./critique-flow.js";
+import {
+  recordCritiqueEvent,
+  recordEvaluationEvent,
+} from "./event-log.js";
 import { formatPlan } from "./format.js";
 import {
   createManualImplementationRunner,
@@ -89,7 +98,11 @@ import {
   type PreparedRepository,
   type WorkspaceChoice,
 } from "./repository.js";
-import { createLocalReview, formatLocalReview } from "./review.js";
+import {
+  createLocalReview,
+  formatLocalReview,
+  readLocalChangeEvidence,
+} from "./review.js";
 import {
   completedSessionId,
   recordCompletedSession,
@@ -104,6 +117,36 @@ import {
 import { discoverVerification, runVerificationCommands } from "./verify.js";
 
 class PreflightStopped extends Error {}
+
+async function recordQualitySafely(
+  action: () => Promise<void>,
+  write: (message: string) => void = console.log,
+): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    write(
+      `Quality event could not be saved: ${error instanceof Error ? error.message : "unknown error"}`,
+    );
+  }
+}
+
+async function recordCritiqueResult(
+  repositoryPath: string,
+  artifact: "specification" | "implementation",
+  result: CritiqueFlowResult,
+  write: (message: string) => void = console.log,
+): Promise<void> {
+  await recordQualitySafely(
+    () => recordCritiqueEvent(
+      repositoryPath,
+      artifact,
+      result.status,
+      result.status === "completed" ? result.report : undefined,
+    ),
+    write,
+  );
+}
 
 async function saveRequestedOutput(
   path: string,
@@ -432,7 +475,29 @@ try {
         const specification = resumeSession?.specification.content ?? formatPlan(plan);
         console.log(`\n${specification}`);
         console.log("\nAdvisory quality evaluation:\n");
-        console.log(formatEvaluationReport(evaluateSpecification(plan)));
+        const specificationEvaluation = evaluateSpecification(plan);
+        console.log(formatEvaluationReport(specificationEvaluation));
+        await recordQualitySafely(
+          () => recordEvaluationEvent(repositoryPath, specificationEvaluation),
+        );
+        const specificationCritique = await runCritiqueFlow({
+          repositoryPath,
+          artifact: "specification",
+          producer: "codex",
+          prompt: buildSpecificationCritiquePrompt(
+            plan,
+            specificationEvaluation,
+          ),
+          conversation: {
+            ask: (prompt) => terminal.question(prompt),
+            write: (message) => console.log(message),
+          },
+        });
+        await recordCritiqueResult(
+          repositoryPath,
+          "specification",
+          specificationCritique,
+        );
 
         let choice: ReviewChoice | undefined = resumeSession ? "approve" : undefined;
         while (!choice) {
@@ -447,7 +512,9 @@ try {
         }
 
         if (choice === "reject") {
-          console.log("\nSpecification rejected. Nothing was saved or built.");
+          console.log(
+            "\nSpecification rejected. No specification was approved and no product code was changed.",
+          );
           break;
         }
 
@@ -681,7 +748,32 @@ try {
               await recordCurrentSession();
               console.log(`\n${formatLocalReview(review)}`);
               console.log("\nAdvisory quality evaluation:\n");
-              console.log(formatEvaluationReport(evaluateImplementation(plan, review)));
+              const implementationEvaluation = evaluateImplementation(plan, review);
+              console.log(formatEvaluationReport(implementationEvaluation));
+              await recordQualitySafely(
+                () => recordEvaluationEvent(repositoryPath, implementationEvaluation),
+              );
+              const changeEvidence = await readLocalChangeEvidence(repositoryPath);
+              const implementationCritique = await runCritiqueFlow({
+                repositoryPath,
+                artifact: "implementation",
+                producer: implementationProvider,
+                prompt: buildImplementationCritiquePrompt(
+                  plan,
+                  review,
+                  changeEvidence,
+                  implementationEvaluation,
+                ),
+                conversation: {
+                  ask: (prompt) => terminal.question(prompt),
+                  write: (message) => console.log(message),
+                },
+              });
+              await recordCritiqueResult(
+                repositoryPath,
+                "implementation",
+                implementationCritique,
+              );
               console.log("\nNothing was committed or published.");
 
               if (operatingMode === "build-with-me") {
@@ -847,7 +939,11 @@ try {
     const specification = formatPlan(plan);
     console.log(specification);
     console.log("\nAdvisory quality evaluation:\n");
-    console.log(formatEvaluationReport(evaluateSpecification(plan)));
+    const specificationEvaluation = evaluateSpecification(plan);
+    console.log(formatEvaluationReport(specificationEvaluation));
+    await recordQualitySafely(
+      () => recordEvaluationEvent(repositoryPath, specificationEvaluation),
+    );
     if (outputPath) {
       await saveRequestedOutput(outputPath, specification);
       console.log(`\nPlan saved to ${outputPath}`);
