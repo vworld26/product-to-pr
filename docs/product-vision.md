@@ -117,7 +117,9 @@ review evidence, and a review-ready pull request. It preserves explicit control
 over consequential actions and can use Codex, Claude Code, or a provider-neutral
 manual handoff for implementation.
 
-The current focus is proving that journey through real dogfooding, quality
-evaluation, stronger recovery, and independent critique. Team integrations and
-launch-and-adoption work should follow after the core workflow demonstrates
-consistent, recoverable results.
+Quality evaluation, recovery checkpoints, bounded retries, and independent
+critique are now available. The current focus is end-to-end dogfooding and a
+careful public launch that makes prerequisites, safety boundaries, and the
+learning path accurate for first-time users. Team integrations should follow
+after public use provides evidence that the core workflow remains consistent
+and recoverable outside this repository.

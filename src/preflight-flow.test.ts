@@ -76,7 +76,7 @@ afterEach(async () => {
 });
 
 describe("guided preflight conversation", () => {
-  it("offers every provider and checks only the user's selection", async () => {
+  it("offers every implementation provider and always checks core Codex", async () => {
     const path = await historyFile();
     const interaction = scriptedConversation(["claude"]);
     const probes = successfulRunner();
@@ -88,8 +88,11 @@ describe("guided preflight conversation", () => {
     expect(interaction.messages.join("\n")).toContain("Codex");
     expect(interaction.messages.join("\n")).toContain("Claude Code");
     expect(interaction.messages.join("\n")).toContain("Another AI");
+    expect(interaction.messages.join("\n")).toContain(
+      "Codex is required separately for product planning and acceptance review",
+    );
+    expect(probes.calls).toContainEqual({ command: "codex", args: ["login", "status"] });
     expect(probes.calls).toContainEqual({ command: "claude", args: ["auth", "status"] });
-    expect(probes.calls.some((call) => call.command === "codex")).toBe(false);
   });
 
   it("runs before a new repository and reuses current history", async () => {
@@ -143,6 +146,12 @@ describe("guided preflight conversation", () => {
     expect(outcome.proceed).toBe(true);
     expect(authAttempts).toBe(2);
     expect(interaction.messages.join("\n")).toContain("BLOCKS WORKFLOW");
+    expect(interaction.prompts.join("\n")).toContain(
+      "Codex is required for planning and review",
+    );
+    expect(interaction.prompts.join("\n")).not.toContain(
+      "Change implementation AI",
+    );
   });
 
   it("never executes another AI's user-supplied method", async () => {
@@ -155,7 +164,12 @@ describe("guided preflight conversation", () => {
       conversation: interaction.conversation, historyPath: path, runner: probes.runner,
     });
     expect(outcome.proceed).toBe(true);
-    expect(probes.calls.every((call) => call.command === "git" || call.command === "gh")).toBe(true);
+    expect(
+      probes.calls.every((call) =>
+        call.command === "git" || call.command === "gh" || call.command === "codex"
+      ),
+    ).toBe(true);
+    expect(probes.calls.some((call) => call.command === "claude")).toBe(false);
     expect(probes.calls.flatMap((call) => call.args)).not.toContain(hostileMethod);
     expect(interaction.messages.join("\n")).toContain("User confirmed");
   });

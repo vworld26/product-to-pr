@@ -56,7 +56,8 @@ and inspect a verified local diff before anything is published.
 Current capabilities:
 
 - run a guided, read-only readiness check before the first planning session for
-  each repository and selected AI provider;
+  each repository, the required Codex planning and review dependency, and any
+  different selected implementation provider;
 - distinguish workflow blockers, accepted non-blocking risks, unavailable
   evidence, and user-confirmed checks with beginner-friendly next actions;
 - support Codex and Claude Code automatic checks plus a non-executing manual
@@ -137,15 +138,17 @@ Current capabilities:
   completed changed paths, and repository instructions, with additional gates
   that operating modes cannot bypass.
 
-## Later: launch and adoption
+## Next: launch and adoption
 
 **Outcome:** New product contributors can understand Product-to-PR, learn the
 workflow through practice, and decide confidently whether it fits their work.
 
-Candidate capabilities:
+Current launch work:
 
-- a public website that explains the product, its safety model, and the
-  learning journey;
+- prepare the repository, license, onboarding, practice path, and public website
+  for a reviewable first release;
+- explain the product, its safety model, and the learning journey on the public
+  website;
 - tutorials, exercises, and worked examples for users with limited technical
   experience;
 - blog posts and reusable learning content derived from shipped features and

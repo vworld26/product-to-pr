@@ -1,7 +1,10 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { ImplementationProvider } from "./provider.js";
+import type {
+  AutomatedImplementationProvider,
+  ImplementationProvider,
+} from "./provider.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -121,6 +124,52 @@ function installAction(tool: "Git" | "GitHub CLI" | "Codex" | "Claude Code", pla
     return `On macOS, install ${tool} (${command}), then rerun preflight. Product-to-PR will not install it for you.`;
   }
   return `Install ${tool} using its official instructions for your operating system, then rerun preflight. Product-to-PR will not install it for you.`;
+}
+
+async function automatedProviderResult(
+  runner: ReadinessProbeRunner,
+  provider: AutomatedImplementationProvider,
+  platform: NodeJS.Platform,
+): Promise<ReadinessResult> {
+  const versionResponse = await probe(runner, {
+    command: provider,
+    args: ["--version"],
+  });
+  const installed = !(versionResponse instanceof Error);
+  const authArgs = provider === "codex"
+    ? ["login", "status"] as const
+    : ["auth", "status"] as const;
+  const authResponse = installed
+    ? await probe(runner, { command: provider, args: authArgs })
+    : new Error("The provider is not installed");
+  const authenticated = installed && !(authResponse instanceof Error);
+  const tool = provider === "codex" ? "Codex" : "Claude Code";
+  const label = provider === "codex"
+    ? "Codex planning and review readiness"
+    : "Claude Code implementation readiness";
+  const readyExplanation = provider === "codex"
+    ? "Codex is installed and signed in for product planning and acceptance review."
+    : "Claude Code is installed and signed in for implementation.";
+
+  return result(
+    `provider-${provider}`,
+    label,
+    "AI provider",
+    authenticated ? "Passed" : "Needs attention",
+    !authenticated,
+    authenticated
+      ? readyExplanation
+      : !installed
+        ? `${tool} could not be started: ${errorText(versionResponse)}`
+        : `${tool} is installed, but sign-in could not be confirmed: ${errorText(authResponse)}`,
+    authenticated
+      ? "No action needed."
+      : missingCommand(versionResponse)
+        ? installAction(tool, platform)
+        : installed
+          ? `Run \`${provider === "codex" ? "codex login" : "claude auth login"}\` yourself, then rerun preflight.`
+          : `Check ${tool} installation, then rerun preflight.`,
+  );
 }
 
 async function probe(
@@ -362,37 +411,20 @@ export async function runPreflight(options: PreflightOptions): Promise<Preflight
     twoFactor === true ? "No action needed." : "Review two-factor authentication in your GitHub account security settings, then rerun preflight.",
   ) : unavailableResult("github-two-factor", "Two-factor authentication", "GitHub", "the GitHub connection"));
 
+  results.push(await automatedProviderResult(runner, "codex", platform));
+
   if (options.provider === "manual") {
     results.push(...manualResults(options.manualAi));
-  } else {
+  } else if (options.provider === "claude") {
     const nestedClaude = options.provider === "claude" && Boolean((options.environment ?? process.env).CLAUDECODE);
     if (nestedClaude) {
       results.push(result(
-        "provider-claude", "Claude Code readiness", "AI provider", "Needs attention", true,
+        "provider-claude", "Claude Code implementation readiness", "AI provider", "Needs attention", true,
         "Claude Code cannot be started inside an existing Claude Code session.",
         "Choose Another AI manual handoff and give the displayed instructions to the current Claude session, then rerun preflight.",
       ));
     } else {
-      const versionResponse = await probe(runner, { command: options.provider, args: ["--version"] });
-      const installed = !(versionResponse instanceof Error);
-      const authArgs = options.provider === "codex" ? ["login", "status"] as const : ["auth", "status"] as const;
-      const authResponse = installed
-        ? await probe(runner, { command: options.provider, args: authArgs })
-        : new Error("The provider is not installed");
-      const authenticatedProvider = installed && !(authResponse instanceof Error);
-      const label = options.provider === "codex" ? "Codex" : "Claude Code";
-      results.push(result(
-        `provider-${options.provider}`, `${label} readiness`, "AI provider",
-        authenticatedProvider ? "Passed" : "Needs attention", !authenticatedProvider,
-        authenticatedProvider ? `${label} is installed and signed in.` : !installed
-          ? `${label} could not be started: ${errorText(versionResponse)}`
-          : `${label} is installed, but sign-in could not be confirmed: ${errorText(authResponse)}`,
-        authenticatedProvider ? "No action needed." : missingCommand(versionResponse)
-          ? installAction(label, platform)
-          : installed
-            ? `Run \`${options.provider === "codex" ? "codex login" : "claude auth login"}\` yourself, then rerun preflight or choose Another AI manual handoff.`
-            : `Check ${label} installation, then rerun preflight or choose Another AI manual handoff.`,
-      ));
+      results.push(await automatedProviderResult(runner, "claude", platform));
     }
   }
 

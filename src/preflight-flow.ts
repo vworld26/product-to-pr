@@ -48,7 +48,8 @@ function yes(input: string): boolean {
 async function chooseProvider(
   conversation: PreflightConversation,
 ): Promise<ImplementationProvider> {
-  conversation.write("\nWhich AI coding tool will you use for this session?");
+  conversation.write("\nWhich AI coding tool should implement the approved change?");
+  conversation.write("Codex is required separately for product planning and acceptance review.");
   conversation.write(`[C] ${implementationProviders.codex.label} — checked automatically.`);
   conversation.write(`[L] ${implementationProviders.claude.label} — checked automatically.`);
   conversation.write(`[M] ${implementationProviders.manual.label} — confirmed with a manual safety checklist.`);
@@ -125,6 +126,8 @@ export async function runGuidedPreflight(
     } else {
       const reason = timing.reason === "new-repository"
         ? "This repository has not been checked on this computer."
+        : timing.reason === "core-dependency"
+          ? "The Codex planning and review dependency has not been checked on this computer."
         : timing.reason === "new-provider"
           ? "This AI tool has not been checked on this computer."
           : "You requested a fresh readiness check.";
@@ -146,13 +149,27 @@ export async function runGuidedPreflight(
     conversation.write(`\n${formatPreflightReport(report)}`);
 
     if (!report.canContinue) {
-      const allowed = ["r", "rerun", "c", "change", "change-ai", "provider", "s", "stop"];
+      const coreCodexBlocked = report.results.some((item) =>
+        item.id === "provider-codex" && item.blocking &&
+        item.status !== "Passed" && item.status !== "User confirmed"
+      );
+      const allowed = coreCodexBlocked
+        ? ["r", "rerun", "s", "stop"]
+        : ["r", "rerun", "c", "change", "change-ai", "provider", "s", "stop"];
       let choice = "";
       while (!allowed.includes(choice)) {
         choice = (await conversation.ask(
-          "\nFix every blocker yourself, then choose [R]erun, [C]hange AI, or [S]top:\n> ",
+          coreCodexBlocked
+            ? "\nCodex is required for planning and review. Fix that blocker yourself, then choose [R]erun or [S]top:\n> "
+            : "\nFix every blocker yourself, then choose [R]erun, [C]hange implementation AI, or [S]top:\n> ",
         )).trim().toLowerCase();
-        if (!allowed.includes(choice)) conversation.write("Please enter rerun, change AI, or stop.");
+        if (!allowed.includes(choice)) {
+          conversation.write(
+            coreCodexBlocked
+              ? "Please enter rerun or stop."
+              : "Please enter rerun, change implementation AI, or stop.",
+          );
+        }
       }
       if (["s", "stop"].includes(choice)) return { proceed: false, provider };
       if (["c", "change", "change-ai", "provider"].includes(choice)) {

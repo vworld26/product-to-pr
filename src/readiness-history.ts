@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, win32 } from "node:path";
 
 import type { ImplementationProvider } from "./provider.js";
 
@@ -16,7 +16,13 @@ export type ReadinessHistory = {
 
 export type PreflightTiming = {
   kind: "required" | "recommended" | "not-due";
-  reason: "requested" | "new-repository" | "new-provider" | "five-sessions" | "current";
+  reason:
+    | "requested"
+    | "new-repository"
+    | "core-dependency"
+    | "new-provider"
+    | "five-sessions"
+    | "current";
 };
 
 export type HistoryLocationOptions = {
@@ -83,7 +89,11 @@ export function readinessHistoryPath(
     return join(home, "Library", "Application Support", "Product-to-PR", "readiness.json");
   }
   if (platform === "win32") {
-    return join(environment.LOCALAPPDATA ?? join(home, "AppData", "Local"), "Product-to-PR", "readiness.json");
+    return win32.join(
+      environment.LOCALAPPDATA ?? win32.join(home, "AppData", "Local"),
+      "Product-to-PR",
+      "readiness.json",
+    );
   }
   return join(environment.XDG_STATE_HOME ?? join(home, ".local", "state"), "product-to-pr", "readiness.json");
 }
@@ -137,6 +147,9 @@ export function preflightTiming(
   if (!history.checkedRepositories.includes(repositoryHistoryId(repositoryPath))) {
     return { kind: "required", reason: "new-repository" };
   }
+  if (!history.checkedProviders.includes("codex")) {
+    return { kind: "required", reason: "core-dependency" };
+  }
   if (!history.checkedProviders.includes(provider)) {
     return { kind: "required", reason: "new-provider" };
   }
@@ -173,7 +186,11 @@ export async function recordPreflightCompleted(
     ...history.checkedRepositories,
     repositoryHistoryId(repositoryPath),
   ]);
-  history.checkedProviders = unique([...history.checkedProviders, provider]);
+  history.checkedProviders = unique([
+    ...history.checkedProviders,
+    "codex",
+    provider,
+  ]);
   history.lastPreflightSessionCount = history.completedSessionIds.length;
   history.lastOfferedSessionCount = history.completedSessionIds.length;
   await saveReadinessHistory(path, history);

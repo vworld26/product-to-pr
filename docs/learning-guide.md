@@ -7,7 +7,9 @@
 - `src/format.ts` converts the plan object into readable Markdown.
 - `src/implementation.ts` ties an approved plan to a branch, commit, and checklist.
 - `src/provider.ts` defines the canonical Codex, Claude Code, and manual
-  implementation choices and checks automated-provider availability.
+  implementation choices. Preflight always checks Codex because planning and
+  acceptance review use it, then checks a different automated implementation
+  provider when selected.
 - `src/execute.ts` safely asks the selected automated provider to make the
   approved local changes.
 - `src/verify.ts` previews and runs known repository checks after approval.
@@ -241,6 +243,8 @@ it does not remove repository rules or safety boundaries.
 The implementation provider is a different choice. It selects who makes the
 local code edits—Codex, Claude Code, or another AI through manual handoff—without
 changing branch isolation, verification evidence, or approval boundaries.
+Product planning and acceptance review remain Codex-backed in this version, so
+Codex readiness is required regardless of the implementation choice.
 
 - **Guide me** — Explain each stage and ask before implementation and verification.
 - **Build with me** — Handle routine implementation and verification, then bring back the review.

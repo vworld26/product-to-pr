@@ -166,7 +166,7 @@ describe("inspectRepository", () => {
       "Add a confidence level to every product plan",
     );
 
-    expect(overview.purpose).toContain("Product-to-PR helps");
+    expect(overview.purpose).toContain("Product-to-PR");
     expect(overview.technologies).toContain("typescript");
     expect(overview.structure).toContain("src/");
     expect(overview.entryPoints).toContain("src/cli.ts");

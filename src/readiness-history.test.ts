@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
   loadReadinessHistory,
   preflightTiming,
   readinessHistoryPath,
+  repositoryHistoryId,
   recordCompletedSession,
   recordPreflightCompleted,
   recordPreflightOffered,
@@ -37,7 +38,27 @@ describe("readiness history", () => {
     expect(readinessHistoryPath({ platform: "linux", homeDirectory: "/home/test", environment: { XDG_STATE_HOME: "/state" } }))
       .toBe("/state/product-to-pr/readiness.json");
     expect(readinessHistoryPath({ platform: "win32", homeDirectory: "C:\\Users\\Test", environment: { LOCALAPPDATA: "C:\\State" } }))
-      .toContain("Product-to-PR/readiness.json");
+      .toBe("C:\\State\\Product-to-PR\\readiness.json");
+  });
+
+  it("rechecks and records core Codex for an older manual-provider history", async () => {
+    const path = await historyFile();
+    await writeFile(path, JSON.stringify({
+      version: 1,
+      completedSessionIds: [],
+      checkedRepositories: [repositoryHistoryId("/repo")],
+      checkedProviders: ["manual"],
+      lastPreflightSessionCount: 0,
+      lastOfferedSessionCount: 0,
+    }));
+
+    let history = await loadReadinessHistory(path);
+    expect(preflightTiming(history, "/repo", "manual"))
+      .toEqual({ kind: "required", reason: "core-dependency" });
+
+    await recordPreflightCompleted("/repo", "manual", path);
+    history = await loadReadinessHistory(path);
+    expect(history.checkedProviders).toEqual(["manual", "codex"]);
   });
 
   it("requires new repository and provider checks, then recommends one after five sessions", async () => {
