@@ -127,8 +127,33 @@ npm run dev -- /path/to/repository --resume /path/to/repository/.product-to-pr/s
 ```
 
 Resume validates the approved specification and repository state, displays the
-stored plan, and continues at the operating-mode choice without repeating
-discovery. Version 1 resumes only from the approved-specification checkpoint.
+stored plan, and continues without repeating completed work. Version 2 adds
+checkpoints after local implementation and after verification plus critique.
+It validates the branch, commit, specification, implementation package,
+changed-file list, diff content, and any manual critique prompt before it skips
+a completed stage. Existing Version 1 approved-specification sessions remain
+supported.
+
+Clearly transient failures in read-only model work—product reasoning,
+acceptance review, and independent critique—may be retried up to two times
+after the first attempt. Product-to-PR explains each retry. Invalid input,
+authentication failures, malformed responses, verification commands, commits,
+pushes, pull requests, and other consequential actions are never retried
+automatically.
+
+Before implementation, Product-to-PR shows a baseline change-risk policy:
+
+- **Standard** uses the existing approval sequence.
+- **Elevated** adds one explicit confirmation before implementation and another
+  before commit.
+- **Restricted** stops after the approved specification and requires qualified
+  maintainer or specialist review before implementation or publication.
+
+The policy recognizes sensitive product wording and changed paths. A repository
+can raise its minimum policy in `AGENTS.md` or `SKILL.md` with
+`Product-to-PR risk: elevated` or `Product-to-PR risk: restricted`. A configured
+standard level cannot lower a risk recognized from the plan or completed diff.
+Operating modes and provider choices cannot bypass these gates.
 
 ## Verify it
 
@@ -152,9 +177,9 @@ do not silently approve or reject work.
 Quality events are recorded outside the repository in the operating system's
 application-data folder. The append-only record contains timestamps, hashed
 repository identifiers, artifact types, outcomes, scores, provider names, and
-finding counts. It never contains repository paths or contents, prompts, diffs,
-credentials, or tokens. A logging failure is reported but does not block the
-workflow.
+finding counts, plus bounded retry and risk-level metadata. It never contains
+repository paths or contents, prompts, diffs, credentials, or tokens. A logging
+failure is reported but does not block the workflow.
 
 Live evaluation is always a separate opt-in action:
 

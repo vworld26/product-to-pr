@@ -118,16 +118,24 @@ Exit evidence:
 - publication actions are independently authorized and auditable; and
 - failed pushes or pull-request operations leave the local branch recoverable.
 
-## Next: quality, evaluation, and recovery
+## Available: quality, evaluation, and recovery
 
 **Outcome:** Teams can understand whether Product-to-PR produces reliable plans
 and changes, and can recover safely when it does not.
 
-Candidate capabilities:
+Current capabilities:
 
-- richer autonomy policies for safe retries and repository-specific risk levels;
-- bounded retries and resumable stages for transient failures;
-- configurable policy gates for higher-risk repositories or changes.
+- Version 2 recovery checkpoints after implementation and after verification
+  plus critique, with Version 1 specification-session compatibility;
+- content-digest validation for repository state, specifications,
+  implementation packages, local diffs, reviews, and manual critique prompts;
+- no more than two retries after the first attempt for recognized transient
+  failures in read-only model operations, never verification or publication;
+- privacy-conscious events for retry attempts and plan or implementation risk
+  levels; and
+- standard, elevated, and restricted risk policies derived from plan evidence,
+  completed changed paths, and repository instructions, with additional gates
+  that operating modes cannot bypass.
 
 ## Later: launch and adoption
 

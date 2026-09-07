@@ -7,6 +7,8 @@ import {
   qualityEventLogPath,
   recordCritiqueEvent,
   recordEvaluationEvent,
+  recordRetryEvent,
+  recordRiskPolicyEvent,
 } from "./event-log.js";
 import type { EvaluationReport } from "./evaluation.js";
 
@@ -49,6 +51,21 @@ describe("privacy-conscious quality event log", () => {
         path,
         new Date("2026-09-06T12:01:00.000Z"),
       );
+      await recordRetryEvent(
+        secretRepository,
+        "independent-critique",
+        1,
+        3,
+        path,
+        new Date("2026-09-06T12:02:00.000Z"),
+      );
+      await recordRiskPolicyEvent(
+        secretRepository,
+        "elevated",
+        "implementation",
+        path,
+        new Date("2026-09-06T12:03:00.000Z"),
+      );
 
       const stored = await readFile(path, "utf8");
       expect(stored).not.toContain("customer-alpha-secret");
@@ -59,6 +76,8 @@ describe("privacy-conscious quality event log", () => {
       expect(events).toMatchObject([
         { eventType: "evaluation", outcome: "needs-improvement", score: 4, findingCount: 1 },
         { eventType: "critique", outcome: "completed", provider: "claude", findingCount: 0 },
+        { eventType: "retry", outcome: "retrying", operation: "independent-critique", attempt: 1 },
+        { eventType: "risk-policy", outcome: "elevated", phase: "implementation" },
       ]);
       expect((await stat(path)).mode & 0o777).toBe(0o600);
     } finally {

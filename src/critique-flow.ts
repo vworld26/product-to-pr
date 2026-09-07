@@ -10,6 +10,7 @@ import {
   type CritiqueRunner,
 } from "./critique.js";
 import type { ImplementationProvider } from "./provider.js";
+import { withTransientRetries, type RetryOptions } from "./retry.js";
 
 export type CritiqueChoice = "run" | "manual" | "skip";
 export type CritiqueFlowResult =
@@ -55,6 +56,7 @@ export async function runCritiqueFlow(options: {
   prompt: string;
   conversation: CritiqueConversation;
   runner?: CritiqueRunner;
+  retry?: RetryOptions;
   createdAt?: Date;
 }): Promise<CritiqueFlowResult> {
   const reviewer = independentCritiqueProvider(options.producer);
@@ -99,11 +101,23 @@ export async function runCritiqueFlow(options: {
   }
 
   try {
-    const report = await runIndependentCritique(
-      options.producer,
-      options.artifact,
-      options.prompt,
-      options.runner,
+    const report = await withTransientRetries(
+      "independent-critique",
+      () => runIndependentCritique(
+        options.producer,
+        options.artifact,
+        options.prompt,
+        options.runner,
+      ),
+      {
+        ...options.retry,
+        onRetry: async (notice) => {
+          await options.retry?.onRetry?.(notice);
+          options.conversation.write(
+            `The independent reviewer hit a temporary problem. Retrying safely (${notice.attempt + 1}/${notice.maximumAttempts})...`,
+          );
+        },
+      },
     );
     options.conversation.write(`\n${formatCritiqueReport(report)}`);
     return { status: "completed", report };
