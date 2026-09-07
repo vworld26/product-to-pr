@@ -166,7 +166,9 @@ describe("inspectRepository", () => {
       "Add a confidence level to every product plan",
     );
 
-    expect(overview.purpose).toContain("Product-to-PR helps");
+    // Matches the README's opening line. Assert on a stable phrase rather than
+    // the whole sentence so wording changes do not break the test.
+    expect(overview.purpose).toContain("reviewed pull request");
     expect(overview.technologies).toContain("typescript");
     expect(overview.structure).toContain("src/");
     expect(overview.entryPoints).toContain("src/cli.ts");
