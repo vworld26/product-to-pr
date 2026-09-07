@@ -103,7 +103,20 @@ continue. If Product-to-PR is already running inside Claude Code, use manual
 handoff instead of trying to start a nested Claude Code session.
 
 This provider choice applies to implementation only. Product reasoning and the
-automated acceptance review remain Codex-backed in this version.
+automated acceptance review remain Codex-backed in this version. After a plan
+or local implementation review is displayed, Product-to-PR offers an optional
+independent critique. Codex-produced work is reviewed by Claude Code and
+Claude-produced work is reviewed by Codex. A manual implementation uses a
+manual review handoff because Product-to-PR cannot prove which model produced
+it.
+
+Before an independent model runs, Product-to-PR explains which artifact and
+repository evidence would be shared and asks once for consent. The reviewer
+runs without edit tools and may only report contradictions, omissions,
+unsupported claims, scope risks, and verification gaps. It cannot edit,
+approve, publish, or merge. If an independent provider cannot run, the same
+review instructions are saved and displayed for a different model instead of
+silently reusing the original provider.
 
 After a specification is approved, Product-to-PR saves a resumable session in
 `.product-to-pr/sessions/`. Continue later from the same unchanged repository,
@@ -135,6 +148,13 @@ requirement discipline, observable acceptance criteria, verification evidence,
 scope control, reviewability, and recovery guidance. Product-to-PR shows the
 finding and evidence behind every score. These evaluations are advisory; they
 do not silently approve or reject work.
+
+Quality events are recorded outside the repository in the operating system's
+application-data folder. The append-only record contains timestamps, hashed
+repository identifiers, artifact types, outcomes, scores, provider names, and
+finding counts. It never contains repository paths or contents, prompts, diffs,
+credentials, or tokens. A logging failure is reported but does not block the
+workflow.
 
 Live evaluation is always a separate opt-in action:
 

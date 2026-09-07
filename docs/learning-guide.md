@@ -28,6 +28,13 @@
   or need improvement.
 - `src/evaluation-live.ts` runs explicitly requested model checks against
   synthetic evidence in a temporary folder.
+- `src/critique.ts` gives a different, read-only model the evidence needed to
+  identify contradictions, omissions, unsupported claims, scope risks, and
+  verification gaps.
+- `src/critique-flow.ts` obtains sharing consent or creates a manual review
+  handoff without treating it as a completed critique.
+- `src/event-log.ts` records allowlisted quality metadata outside the
+  repository without retaining prompts, repository contents, or credentials.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -83,6 +90,29 @@ Deterministic fixtures run offline during normal testing. The live harness is a
 separate opt-in command, uses synthetic repository evidence, and runs from an
 isolated temporary folder so evaluating model behavior does not expose the
 working repository.
+
+### Independent critique and privacy-safe evidence
+
+A rubric applies consistent standards; an independent critique asks a different
+model to challenge the first model's work. Product-to-PR uses Claude Code to
+critique Codex output and Codex to critique Claude Code output. The reviewer
+runs in a temporary folder without editing tools. It can report structured
+findings, but cannot change the artifact or make approval, publication, or merge
+decisions.
+
+Model independence cannot be inferred for work completed through an unknown
+manual handoff. In that case—or when the independent provider cannot run—the
+product saves and displays a provider-neutral prompt for the user to give to a
+known different model. A handoff is labeled as a handoff, not as a completed
+review.
+
+Sending an artifact to a second provider is optional and requires an informed
+choice at runtime. Product-to-PR states that the displayed plan or diff,
+included repository evidence, and evaluation will be shared. Credentials and
+tokens are never added. Its separate quality-event log stores only allowlisted
+metadata: timestamps, hashes, artifact types, outcomes, scores, provider names,
+and counts. That gives later evaluations useful trend evidence without creating
+a second store of source code or model conversations.
 
 ### Build
 
