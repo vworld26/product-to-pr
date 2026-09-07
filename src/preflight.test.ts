@@ -67,12 +67,29 @@ describe("guided preflight", () => {
     expect(calls.every((call) => !call.args.some((argument) => /^(install|config|edit|create|delete|merge|push)$/.test(argument)))).toBe(true);
   });
 
-  it("checks Claude but not Codex when Claude is selected", async () => {
+  it("checks core Codex and Claude when Claude implements", async () => {
     const { runner, calls } = successfulRunner();
     await runPreflight({ repositoryPath: "/repo", provider: "claude", runner, environment: {} });
+    expect(calls).toContainEqual({ command: "codex", args: ["login", "status"] });
     expect(calls).toContainEqual({ command: "claude", args: ["--version"] });
     expect(calls).toContainEqual({ command: "claude", args: ["auth", "status"] });
-    expect(calls.some((call) => call.command === "codex")).toBe(false);
+  });
+
+  it("requires core Codex when implementation uses manual handoff", async () => {
+    const { runner, calls } = successfulRunner();
+    const confirmations = Object.fromEntries(
+      manualAiChecklist.map((item) => [item.id, true]),
+    );
+    const report = await runPreflight({
+      repositoryPath: "/repo",
+      provider: "manual",
+      runner,
+      manualAi: { name: "Example AI", usageMethod: "browser", confirmations },
+    });
+
+    expect(calls).toContainEqual({ command: "codex", args: ["login", "status"] });
+    expect(report.results.find((item) => item.id === "provider-codex"))
+      .toMatchObject({ status: "Passed", blocking: false });
   });
 
   it("blocks when the selected provider is installed but not signed in", async () => {
@@ -105,7 +122,12 @@ describe("guided preflight", () => {
       repositoryPath: "/repo", provider: "manual", runner,
       manualAi: { name: "Example AI", usageMethod: hostileMethod, confirmations: { access: true } },
     });
-    expect(calls.some((call) => call.command !== "git" && call.command !== "gh")).toBe(false);
+    expect(
+      calls.every((call) =>
+        call.command === "git" || call.command === "gh" || call.command === "codex"
+      ),
+    ).toBe(true);
+    expect(calls.some((call) => call.command === "claude")).toBe(false);
     expect(calls.flatMap((call) => call.args)).not.toContain(hostileMethod);
     expect(report.results.find((item) => item.id === "provider-manual-details")?.explanation).toContain("future dedicated provider adapter");
     expect(report.results.find((item) => item.id === "provider-manual-access")?.status).toBe("User confirmed");

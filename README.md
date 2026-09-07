@@ -1,6 +1,7 @@
 # Product-to-PR
 
-**Turn a plain-language feature request into a reviewed pull request. A person approves every step.**
+**Product-to-PR turns a plain-language feature request into a reviewed pull
+request while keeping you in control of every consequential step.**
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/vworld26/product-to-pr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -24,11 +25,16 @@ Point it at any local folder or GitHub URL:
 npm run dev -- https://github.com/owner/repository "Add a greeting command"
 ```
 
-Requirements: Node 22 and Git. To create pull requests you also need the GitHub
-CLI (`gh`) signed in. To write code you need a coding agent: Codex, Claude Code,
-or a prompt you hand to any other agent yourself.
+Requirements: Node 20 or newer, Git, and the Codex CLI installed and signed in.
+Product-to-PR currently uses Codex for product planning and acceptance review.
+To work from a GitHub URL or create a pull request, you also need the GitHub CLI
+(`gh`) signed in. Implementation can use Codex, Claude Code, or a prompt you
+hand to another coding agent yourself.
 
-No local setup? Click the Codespaces badge above and it runs in the browser.
+The Codespaces badge opens a browser-based development environment with Node,
+Git, and the GitHub CLI. You must still install and sign in to Codex before
+running Product-to-PR, and install and sign in to Claude Code if you select it
+for implementation.
 
 ## Why this exists
 
@@ -46,19 +52,19 @@ and it grows with me as I learn.
 Ten steps from idea to pull request. It explains each one and stops for your
 approval before anything that matters.
 
-1. **Preflight** checks the repository, Git, and your coding agent, then asks for one confirmation of the risks.
+1. **Preflight** checks the repository, Git, GitHub, the required Codex planning service, and your selected implementation provider, then asks for one confirmation of the risks.
 2. **Restate** turns your one-line request into plain language you confirm or correct.
 3. **Discover** asks focused product questions. Small reversible decisions are grouped; anything touching scope, users, data, safety, or outcomes gets its own question.
 4. **Inspect** reads the codebase: structure, entry points, tests, and any instructions the repo already carries for AI agents.
 5. **Specify** writes the spec, labelling every decision by where it came from: something you confirmed, evidence in the code, a recommended default, or an assumption still open. Approved specs are saved so you can stop and resume.
 6. **Branch** creates a working branch, after you approve, so nothing touches your main code.
-7. **Implement** hands the approved spec to Codex, Claude Code, or a written prompt. The agent that writes the code cannot run the checks or publish anything.
+7. **Implement** hands the approved spec to Codex, Claude Code, or a written prompt. During this stage, the agent can edit only the local implementation and cannot run checks or publish anything.
 8. **Verify** runs only the checks the repository has declared safe, and tells you how much confidence the evidence gives.
 9. **Review** shows the full diff and how the result measures up against each acceptance criterion.
 10. **Publish** treats commit, push, and pull request as three separate approvals, and always stops before merge.
 
-Every stop is a real stop. You can end after any step with a useful file and a
-clear record of where you are.
+Every approval is a real stop. After the specification is approved, you can end
+at each major checkpoint with saved work and a clear record of where you are.
 
 ## Who it is for
 
@@ -80,13 +86,15 @@ clear record of where you are.
 
 ## Preflight and readiness
 
-Before the first interactive planning session for a repository, Product-to-PR asks which AI
-coding tool you intend to use and runs a guided readiness check. The check uses
-safe, read-only commands to explain whether Git, GitHub, the repository, and the
-selected provider are ready. Workflow blockers must be fixed or handled by
-choosing another provider. Non-blocking risks are accepted together in one
-confirmation. Product-to-PR never installs tools or changes settings during
-preflight.
+Before the first interactive planning session for a repository, Product-to-PR
+asks which AI should implement the change and runs a guided readiness check.
+The check uses safe, read-only commands to explain whether Git, GitHub, the
+repository, and Codex are ready. Codex is always checked because this version
+uses it for product planning and acceptance review. If Claude Code is selected
+for implementation, it is checked too. Core workflow blockers must be fixed; a
+blocker affecting only the implementation provider can be handled by choosing
+another provider. Non-blocking risks are accepted together in one confirmation.
+Product-to-PR never installs tools or changes settings during preflight.
 
 Use `--preflight` to request a fresh check. Use
 `--clear-preflight-history` to clear the small readiness record and run again:
@@ -124,7 +132,8 @@ Use `--mode choose` to choose again and save a new preference for that
 repository. Repository instructions and publication approvals apply in every
 mode.
 
-Choose which AI makes the local implementation changes:
+Choose which AI makes the local implementation changes. Codex remains required
+for planning and acceptance review in every case:
 
 ```bash
 npm run dev -- . "Add a greeting command" --provider codex

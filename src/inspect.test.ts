@@ -23,6 +23,31 @@ afterEach(async () => {
 });
 
 describe("discoverRelevantFiles", () => {
+  it("uses the first meaningful README paragraph as the repository purpose", async () => {
+    const repositoryPath = await createTemporaryDirectory();
+    await writeFile(
+      join(repositoryPath, "README.md"),
+      [
+        "# Example project",
+        "",
+        "A precise description of what this repository helps people do.",
+        "",
+        "## More information",
+        "",
+        "This later paragraph is not the repository purpose.",
+      ].join("\n"),
+    );
+
+    const overview = await inspectRepository(
+      repositoryPath,
+      "Improve the project documentation",
+    );
+
+    expect(overview.purpose).toBe(
+      "A precise description of what this repository helps people do.",
+    );
+  });
+
   it("lists likely files in a normal repository with one-line reasons", async () => {
     const repositoryPath = await createTemporaryDirectory();
     await mkdir(join(repositoryPath, "src"));
