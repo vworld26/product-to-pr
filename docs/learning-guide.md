@@ -35,6 +35,10 @@
   handoff without treating it as a completed critique.
 - `src/event-log.ts` records allowlisted quality metadata outside the
   repository without retaining prompts, repository contents, or credentials.
+- `src/retry.ts` permits at most two retries for recognized transient failures
+  in explicitly wrapped read-only model operations.
+- `src/policy.ts` classifies standard, elevated, and restricted changes and
+  defines the additional gates for higher-risk work.
 - `src/plan.test.ts` verifies important behavior automatically.
 - `package.json` defines project commands and development dependencies.
 - `tsconfig.json` configures the TypeScript compiler.
@@ -111,8 +115,33 @@ choice at runtime. Product-to-PR states that the displayed plan or diff,
 included repository evidence, and evaluation will be shared. Credentials and
 tokens are never added. Its separate quality-event log stores only allowlisted
 metadata: timestamps, hashes, artifact types, outcomes, scores, provider names,
-and counts. That gives later evaluations useful trend evidence without creating
-a second store of source code or model conversations.
+counts, retry attempts, and risk levels. That gives later evaluations useful
+trend evidence without creating a second store of source code or model
+conversations.
+
+### Bounded recovery and risk policy
+
+Retrying is safe only when repeating the operation cannot publish, commit, or
+mutate product code. Product-to-PR retries recognized temporary network,
+timeout, rate-limit, and service failures only for product reasoning,
+acceptance review, and independent critique. It makes at most three total
+attempts and explains each retry. Permanent errors and malformed results stop
+immediately. Verification and every Git or GitHub publication action remain
+single-attempt operations controlled by their existing approvals.
+
+Risk policy is separate from collaboration level. Standard work keeps the
+normal approval sequence. Elevated work adds explicit risk confirmations before
+implementation and commit. Restricted work stops after planning so a qualified
+maintainer or specialist can review it. The first assessment uses the approved
+plan; the second can raise the level when the actual changed paths include
+automation, deployment, dependency locks, secrets, credentials, environment
+configuration, or migrations.
+
+Repositories can raise their minimum level with `Product-to-PR risk: elevated`
+or `Product-to-PR risk: restricted` in `AGENTS.md` or `SKILL.md`. They cannot use
+a standard declaration to lower risk recognized from the plan or diff. Guide
+me, Build with me, Take the lead, and implementation-provider choices all remain
+subject to the same policy.
 
 ### Build
 
@@ -125,19 +154,22 @@ commit, relevant files, repository instructions, and work to verify. It gives a
 beginner a visible checklist and gives reviewers evidence that later changes
 started from the approved scope.
 
-### Resumable approved specifications
+### Resumable recovery checkpoints
 
 Specification approval creates a versioned session handoff containing the
 approved plan, its integrity digest, repository source, branch, commit,
-operating mode, and remaining actions. `--resume` reloads that checkpoint and
-continues without repeating discovery only when the specification and
-repository state still match. This conservative boundary prevents Product-to-PR
-from applying an old plan to code that changed while the session was paused.
+operating mode, and remaining actions. Version 2 updates that same protected
+handoff after local implementation and after verification plus critique.
+`--resume` uses the stage to continue at implementation, verification, or
+publication without rerunning work already completed.
 
-Version 1 resumes at the approved-specification stage. Once implementation
-changes the branch or commit, a later recovery model is needed; the product does
-not claim that partially completed implementation is resumable yet. Managed
-workspace cleanup warns when it would remove the only saved session.
+Skipping a stage is safe only when its evidence is unchanged. Resume checks the
+repository identity, branch, commit, specification content, implementation
+package, changed-file list, actual diff content, review digest, and any manual
+critique prompt. A mismatch stops with recovery guidance instead of guessing
+which copy is correct. Existing Version 1 specification checkpoints still load.
+Managed-workspace cleanup warns that it also removes checkpoints stored only in
+that folder.
 
 ### Controlled local implementation
 

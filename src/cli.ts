@@ -40,11 +40,15 @@ import {
 import {
   buildImplementationCritiquePrompt,
   buildSpecificationCritiquePrompt,
+  formatCritiqueReport,
 } from "./critique.js";
 import { runCritiqueFlow, type CritiqueFlowResult } from "./critique-flow.js";
 import {
   recordCritiqueEvent,
   recordEvaluationEvent,
+  recordRetryEvent,
+  recordRiskPolicyEvent,
+  type RetryOperation,
 } from "./event-log.js";
 import { formatPlan } from "./format.js";
 import {
@@ -70,7 +74,17 @@ import {
   parseCliArguments,
   writeOutputFile,
 } from "./output.js";
-import { createProductPlan, type ProductReasoning } from "./plan.js";
+import {
+  createProductPlan,
+  type ProductPlan,
+  type ProductReasoning,
+} from "./plan.js";
+import {
+  assessRiskPolicy,
+  formatRiskPolicy,
+  parseRiskConfirmation,
+  type RiskPolicy,
+} from "./policy.js";
 import { runGuidedPreflight } from "./preflight-flow.js";
 import {
   assertImplementationProviderReady,
@@ -102,18 +116,24 @@ import {
   createLocalReview,
   formatLocalReview,
   readLocalChangeEvidence,
+  type LocalReview,
 } from "./review.js";
 import {
   completedSessionId,
   recordCompletedSession,
 } from "./readiness-history.js";
 import {
+  hasImplementationCheckpoint,
+  hasVerificationCheckpoint,
   loadResumableSession,
   managedWorkspaceDeletionWarning,
+  saveImplementationCheckpoint,
   saveResumableSession,
   saveSessionOperatingMode,
+  saveVerificationCheckpoint,
   type LoadedSession,
 } from "./session.js";
+import { withTransientRetries } from "./retry.js";
 import { discoverVerification, runVerificationCommands } from "./verify.js";
 
 class PreflightStopped extends Error {}
@@ -129,6 +149,165 @@ async function recordQualitySafely(
       `Quality event could not be saved: ${error instanceof Error ? error.message : "unknown error"}`,
     );
   }
+}
+
+async function runRecoverableReadOnlyOperation<T>(
+  repositoryPath: string,
+  operation: RetryOperation,
+  action: () => Promise<T>,
+  write: (message: string) => void = console.log,
+): Promise<T> {
+  const label = operation.split("-")
+    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`).join(" ");
+  return withTransientRetries(operation, action, {
+    onRetry: async (notice) => {
+      write(
+        `${label} hit a temporary problem. Retrying safely (${notice.attempt + 1}/${notice.maximumAttempts})...`,
+      );
+      await recordQualitySafely(
+        () => recordRetryEvent(
+          repositoryPath,
+          operation,
+          notice.attempt,
+          notice.maximumAttempts,
+        ),
+        write,
+      );
+    },
+  });
+}
+
+async function confirmElevatedRisk(
+  policy: RiskPolicy,
+  stage: "implementation" | "commit",
+  ask: (prompt: string) => Promise<string>,
+  write: (message: string) => void = console.log,
+): Promise<boolean> {
+  if (policy.level !== "elevated") return policy.level === "standard";
+  let choice: ReturnType<typeof parseRiskConfirmation>;
+  while (!choice) {
+    choice = parseRiskConfirmation(
+      await ask(
+        `This is elevated-risk work. Review the listed risks and choose [C]ontinue to ${stage} or [S]top:\n> `,
+      ),
+    );
+    if (!choice) write("Please enter continue or stop.");
+  }
+  return choice === "continue";
+}
+
+async function offerPublication(options: {
+  repositoryPath: string;
+  plan: ProductPlan;
+  review: LocalReview;
+  riskPolicy: RiskPolicy;
+  ask: (prompt: string) => Promise<string>;
+  write: (message: string) => void;
+  recordCurrentSession: () => Promise<void>;
+}): Promise<void> {
+  const verification = options.review.verification;
+  if (
+    verification.length === 0 ||
+    !verification.every((result) => result.passed)
+  ) {
+    options.write(
+      verification.length === 0
+        ? "\nCommit is unavailable because no safe automated verification command was discovered. Add or document a verification command, then review again."
+        : "\nCommit is unavailable because verification failed. Fix the local changes and verify again.",
+    );
+    return;
+  }
+  if (options.riskPolicy.level === "restricted") {
+    options.write(
+      "\nCommit and publication are unavailable for restricted-risk work. Keep the checkpoint and obtain qualified maintainer or specialist review.",
+    );
+    return;
+  }
+  if (!await confirmElevatedRisk(
+    options.riskPolicy,
+    "commit",
+    options.ask,
+    options.write,
+  )) {
+    options.write(
+      "\nStopped at the elevated-risk checkpoint. The reviewed local changes and recovery checkpoint were kept.",
+    );
+    return;
+  }
+
+  const commitMessage = proposeCommitMessage(options.plan);
+  options.write(`\nProposed commit message:\n${commitMessage}`);
+  let commitChoice: CommitChoice | undefined;
+  while (!commitChoice) {
+    commitChoice = parseCommitChoice(
+      await options.ask("\nChoose [C]ommit or [S]top here:\n> "),
+    );
+    if (!commitChoice) options.write("Please enter commit or stop.");
+  }
+  if (commitChoice !== "commit") return;
+
+  const commit = await commitReviewedChanges(
+    options.repositoryPath,
+    commitMessage,
+    options.review,
+  );
+  options.write(`\nReviewed changes committed: ${commit}`);
+  let pushChoice: PushChoice | undefined;
+  while (!pushChoice) {
+    pushChoice = parsePushChoice(
+      await options.ask("\nChoose [P]ush or [S]top here:\n> "),
+    );
+    if (!pushChoice) options.write("Please enter push or stop.");
+  }
+  if (pushChoice !== "push") return;
+
+  const branch = await pushImplementationBranch(options.repositoryPath);
+  options.write(`\nBranch pushed: ${branch}`);
+  let pullRequestChoice: PullRequestChoice | undefined;
+  while (!pullRequestChoice) {
+    pullRequestChoice = parsePullRequestChoice(
+      await options.ask("\nChoose open [P]ull request or [S]top here:\n> "),
+    );
+    if (!pullRequestChoice) options.write("Please enter pull request or stop.");
+  }
+  if (pullRequestChoice !== "pull-request") return;
+
+  options.write("\nWho will own the pull-request review?");
+  options.write(`[I] ${reviewOwnerDescriptions.operator}`);
+  options.write(`[H] ${reviewOwnerDescriptions.maintainer}`);
+  let reviewOwner: ReviewOwner | undefined;
+  while (!reviewOwner) {
+    reviewOwner = parseReviewOwner(await options.ask("> "));
+    if (!reviewOwner) options.write("Please enter I or H.");
+  }
+  const handoff: ReviewHandoff = { owner: reviewOwner };
+  if (reviewOwner === "maintainer") {
+    const reviewer = (
+      await options.ask(
+        "GitHub username or team to request (optional; press Enter to skip):\n> ",
+      )
+    ).trim();
+    if (reviewer) handoff.reviewer = reviewer;
+  }
+  const url = await openPullRequest(
+    options.repositoryPath,
+    options.plan,
+    options.review,
+    handoff,
+  );
+  await options.recordCurrentSession();
+  options.write(`\nPull request opened: ${url}`);
+  if (handoff.reviewer) {
+    await requestPullRequestReview(
+      options.repositoryPath,
+      url,
+      handoff.reviewer,
+    );
+    options.write(`Review requested from ${handoff.reviewer}.`);
+  }
+  options.write(
+    "Product-to-PR has stopped before merge. The repository maintainer must review the pull request and make the separate merge decision.",
+  );
 }
 
 async function recordCritiqueResult(
@@ -278,9 +457,15 @@ try {
     let buildWithMeOffered = false;
 
     try {
+      resumeSession = resumePath
+        ? await loadResumableSession(resumePath, repositoryPath)
+        : undefined;
+      const checkpointProvider = resumeSession && hasImplementationCheckpoint(resumeSession)
+        ? resumeSession.implementation.provider
+        : undefined;
       const preflight = await runGuidedPreflight({
         repositoryPath,
-        providerOverride,
+        providerOverride: checkpointProvider ?? providerOverride,
         force: forcePreflight,
         clearHistory: clearPreflightHistory,
         conversation: {
@@ -292,10 +477,10 @@ try {
         console.log("\nStopped before repository planning. No repository files or settings were changed.");
         throw new PreflightStopped();
       }
-      const implementationProvider = preflight.provider;
-      resumeSession = resumePath
-        ? await loadResumableSession(resumePath, repositoryPath)
-        : undefined;
+      let implementationProvider = preflight.provider;
+      if (resumeSession && hasImplementationCheckpoint(resumeSession)) {
+        implementationProvider = resumeSession.implementation.provider;
+      }
       if (resumeSession) featureRequest = resumeSession.featureRequest;
       activeSessionPath = resumeSession?.sessionPath;
       const repositoryOverview = resumeSession?.plan.repositoryOverview ??
@@ -313,10 +498,14 @@ try {
           risks: resumeSession.plan.risks,
           testPlan: resumeSession.plan.testPlan,
         }
-        : await reasonAboutFeature(
+        : await runRecoverableReadOnlyOperation(
           repositoryPath,
-          featureRequest,
-          repositoryOverview,
+          "product-reasoning",
+          () => reasonAboutFeature(
+            repositoryPath,
+            featureRequest,
+            repositoryOverview,
+          ),
         );
 
       const recordCurrentSession = async (): Promise<void> => {
@@ -382,11 +571,15 @@ try {
         ).trim();
         if (correction) {
           answers.push(`User correction to the feature interpretation — ${correction}`);
-          reasoning = await reasonAboutFeature(
+          reasoning = await runRecoverableReadOnlyOperation(
             repositoryPath,
-            featureRequest,
-            repositoryOverview,
-            answers,
+            "product-reasoning",
+            () => reasonAboutFeature(
+              repositoryPath,
+              featureRequest,
+              repositoryOverview,
+              answers,
+            ),
           );
           console.log("\nUpdated feature description:\n");
           console.log(reasoning.summary);
@@ -458,11 +651,15 @@ try {
         }
       }
 
-      reasoning = await reasonAboutFeature(
+      reasoning = await runRecoverableReadOnlyOperation(
         repositoryPath,
-        featureRequest,
-        repositoryOverview,
-        answers,
+        "product-reasoning",
+        () => reasonAboutFeature(
+          repositoryPath,
+          featureRequest,
+          repositoryOverview,
+          answers,
+        ),
       );
       }
 
@@ -477,26 +674,53 @@ try {
         console.log("\nAdvisory quality evaluation:\n");
         const specificationEvaluation = evaluateSpecification(plan);
         console.log(formatEvaluationReport(specificationEvaluation));
+        if (!(resumeSession && hasImplementationCheckpoint(resumeSession))) {
+          await recordQualitySafely(
+            () => recordEvaluationEvent(repositoryPath, specificationEvaluation),
+          );
+        }
+        if (resumeSession && hasImplementationCheckpoint(resumeSession)) {
+          console.log(
+            "\nThe specification was already approved before the saved implementation checkpoint, so its critique is not repeated.",
+          );
+        } else {
+          const specificationCritique = await runCritiqueFlow({
+            repositoryPath,
+            artifact: "specification",
+            producer: "codex",
+            prompt: buildSpecificationCritiquePrompt(
+              plan,
+              specificationEvaluation,
+            ),
+            conversation: {
+              ask: (prompt) => terminal.question(prompt),
+              write: (message) => console.log(message),
+            },
+            retry: {
+              onRetry: (notice) => recordQualitySafely(
+                () => recordRetryEvent(
+                  repositoryPath,
+                  "independent-critique",
+                  notice.attempt,
+                  notice.maximumAttempts,
+                ),
+              ),
+            },
+          });
+          await recordCritiqueResult(
+            repositoryPath,
+            "specification",
+            specificationCritique,
+          );
+        }
+        const riskPolicy = assessRiskPolicy(plan);
+        console.log(`\n${formatRiskPolicy(riskPolicy)}`);
         await recordQualitySafely(
-          () => recordEvaluationEvent(repositoryPath, specificationEvaluation),
-        );
-        const specificationCritique = await runCritiqueFlow({
-          repositoryPath,
-          artifact: "specification",
-          producer: "codex",
-          prompt: buildSpecificationCritiquePrompt(
-            plan,
-            specificationEvaluation,
+          () => recordRiskPolicyEvent(
+            repositoryPath,
+            riskPolicy.level,
+            "plan",
           ),
-          conversation: {
-            ask: (prompt) => terminal.question(prompt),
-            write: (message) => console.log(message),
-          },
-        });
-        await recordCritiqueResult(
-          repositoryPath,
-          "specification",
-          specificationCritique,
         );
 
         let choice: ReviewChoice | undefined = resumeSession ? "approve" : undefined;
@@ -557,7 +781,11 @@ try {
           await recordCurrentSession();
           console.log("\nYour approved specification:\n");
           console.log(specification);
-          console.log("No product code was changed.");
+          console.log(
+            resumeSession && hasImplementationCheckpoint(resumeSession)
+              ? "The previously saved local product changes remain unchanged."
+              : "No product code was changed.",
+          );
 
           let operatingMode: OperatingMode | undefined =
             modeOverride && modeOverride !== "choose"
@@ -612,7 +840,10 @@ try {
           }
 
           let buildChoice: BuildChoice = "build";
-          if (pausesBeforeRoutineWork(operatingMode)) {
+          if (
+            pausesBeforeRoutineWork(operatingMode) &&
+            !(resumeSession && hasImplementationCheckpoint(resumeSession))
+          ) {
             let guidedBuildChoice: BuildChoice | undefined;
             while (!guidedBuildChoice) {
               const answer = await terminal.question(
@@ -635,59 +866,136 @@ try {
               }
             }
             buildChoice = guidedBuildChoice;
+          } else if (resumeSession && hasImplementationCheckpoint(resumeSession)) {
+            console.log(
+              "\nContinuing from the saved checkpoint; completed implementation will not run again.",
+            );
           }
 
           if (buildChoice === "build") {
-            await assertImplementationProviderReady(implementationProvider);
-
-            const branchName = await createImplementationBranch(
-              repositoryPath,
-              plan.title,
-            );
-            const implementationPath = await preserveImplementationPackage(
-              repositoryPath,
-              path,
-              plan,
-            );
-            console.log(`\nSafe implementation branch created: ${branchName}`);
-            if (!usesConciseRoutineUpdates(operatingMode)) {
+            let implementationPath: string;
+            if (resumeSession && hasImplementationCheckpoint(resumeSession)) {
+              implementationPath = resumeSession.implementation.packagePath;
               console.log(
-                `Implementation checklist saved to ${implementationPath}`,
+                `\nValidated implementation checkpoint from ${resumeSession.implementation.completedAt}.`,
               );
-            }
-            console.log(
-              `\nImplementation provider: ${implementationProviders[implementationProvider].label}`,
-            );
-            console.log("Implementing the approved change locally...");
-            let implementationRunner: ImplementationRunner;
-            if (implementationProvider === "manual") {
-              implementationRunner = createManualImplementationRunner(
-                implementationPath,
-                async (manualPromptPath, prompt) => {
-                  console.log(`\nManual handoff saved to ${manualPromptPath}`);
-                  console.log("\nInstructions for the other AI:\n");
-                  console.log(prompt);
-                  await terminal.question(
-                    "\nGive these instructions to the other AI in this repository. Return here and press Enter after it finishes.\n> ",
-                  );
-                },
-              );
+              console.log("The saved local changes match their recorded content digest.");
             } else {
-              implementationRunner = implementationRunnerFor(
-                implementationProvider,
-              );
-            }
-            const implementationSummary = await implementApprovedPlan(
-              repositoryPath,
-              path,
-              implementationPath,
-              implementationRunner,
-            );
-            console.log(`\n${implementationSummary}`);
-            console.log(
-              "\nLocal changes are ready. No tests were run and nothing was committed or published.",
-            );
+              if (riskPolicy.level === "restricted") {
+                console.log(
+                  "\nStopped at the restricted-risk checkpoint. The approved specification and resumable session were kept; automatic implementation was not authorized.",
+                );
+                break;
+              }
+              if (!await confirmElevatedRisk(
+                riskPolicy,
+                "implementation",
+                (prompt) => terminal.question(prompt),
+              )) {
+                console.log(
+                  "\nStopped at the elevated-risk checkpoint. The approved specification and resumable session were kept.",
+                );
+                break;
+              }
+              await assertImplementationProviderReady(implementationProvider);
 
+              const branchName = await createImplementationBranch(
+                repositoryPath,
+                plan.title,
+              );
+              implementationPath = await preserveImplementationPackage(
+                repositoryPath,
+                path,
+                plan,
+              );
+              console.log(`\nSafe implementation branch created: ${branchName}`);
+              if (!usesConciseRoutineUpdates(operatingMode)) {
+                console.log(
+                  `Implementation checklist saved to ${implementationPath}`,
+                );
+              }
+              console.log(
+                `\nImplementation provider: ${implementationProviders[implementationProvider].label}`,
+              );
+              console.log("Implementing the approved change locally...");
+              let implementationRunner: ImplementationRunner;
+              if (implementationProvider === "manual") {
+                implementationRunner = createManualImplementationRunner(
+                  implementationPath,
+                  async (manualPromptPath, prompt) => {
+                    console.log(`\nManual handoff saved to ${manualPromptPath}`);
+                    console.log("\nInstructions for the other AI:\n");
+                    console.log(prompt);
+                    await terminal.question(
+                      "\nGive these instructions to the other AI in this repository. Return here and press Enter after it finishes.\n> ",
+                    );
+                  },
+                );
+              } else {
+                implementationRunner = implementationRunnerFor(
+                  implementationProvider,
+                );
+              }
+              const implementationSummary = await implementApprovedPlan(
+                repositoryPath,
+                path,
+                implementationPath,
+                implementationRunner,
+              );
+              console.log(`\n${implementationSummary}`);
+              console.log(
+                "\nLocal changes are ready. No tests were run and nothing was committed or published.",
+              );
+              if (!resumeSession) {
+                throw new Error("The approved session is unavailable for recovery.");
+              }
+              resumeSession = await saveImplementationCheckpoint(
+                resumeSession,
+                implementationProvider,
+                implementationPath,
+              );
+              console.log(`Recovery checkpoint saved to ${resumeSession.sessionPath}`);
+            }
+
+            if (resumeSession && hasVerificationCheckpoint(resumeSession)) {
+              const saved = resumeSession.verification;
+              console.log(
+                `\nValidated verification and critique checkpoint from ${saved.completedAt}.`,
+              );
+              console.log(`\n${formatLocalReview(saved.review)}`);
+              console.log("\nSaved advisory quality evaluation:\n");
+              console.log(formatEvaluationReport(saved.evaluation));
+              if (saved.critique.status === "completed") {
+                console.log(`\n${formatCritiqueReport(saved.critique.report)}`);
+              } else if (saved.critique.status === "manual-handoff") {
+                console.log(
+                  `\nIndependent critique remains a manual handoff: ${saved.critique.promptPath}`,
+                );
+              } else {
+                console.log("\nIndependent critique was skipped in the saved checkpoint.");
+              }
+              const reviewedRiskPolicy = assessRiskPolicy(
+                plan,
+                saved.review.changedFiles,
+              );
+              console.log(`\n${formatRiskPolicy(reviewedRiskPolicy)}`);
+              await recordQualitySafely(
+                () => recordRiskPolicyEvent(
+                  repositoryPath,
+                  reviewedRiskPolicy.level,
+                  "implementation",
+                ),
+              );
+              await offerPublication({
+                repositoryPath,
+                plan,
+                review: saved.review,
+                riskPolicy: reviewedRiskPolicy,
+                ask: (prompt) => terminal.question(prompt),
+                write: (message) => console.log(message),
+                recordCurrentSession,
+              });
+            } else {
             const verificationDiscovery = await discoverVerification(
               repositoryPath,
             );
@@ -740,10 +1048,14 @@ try {
                 repositoryPath,
                 verificationCommands,
               );
-              const review = await createLocalReview(
+              const review = await runRecoverableReadOnlyOperation(
                 repositoryPath,
-                plan,
-                verification,
+                "acceptance-review",
+                () => createLocalReview(
+                  repositoryPath,
+                  plan,
+                  verification,
+                ),
               );
               await recordCurrentSession();
               console.log(`\n${formatLocalReview(review)}`);
@@ -768,13 +1080,46 @@ try {
                   ask: (prompt) => terminal.question(prompt),
                   write: (message) => console.log(message),
                 },
+                retry: {
+                  onRetry: (notice) => recordQualitySafely(
+                    () => recordRetryEvent(
+                      repositoryPath,
+                      "independent-critique",
+                      notice.attempt,
+                      notice.maximumAttempts,
+                    ),
+                  ),
+                },
               });
               await recordCritiqueResult(
                 repositoryPath,
                 "implementation",
                 implementationCritique,
               );
+              if (!resumeSession) {
+                throw new Error("The implementation checkpoint is unavailable for recovery.");
+              }
+              resumeSession = await saveVerificationCheckpoint(
+                resumeSession,
+                review,
+                implementationEvaluation,
+                implementationCritique,
+              );
+              console.log(`Recovery checkpoint updated at ${resumeSession.sessionPath}`);
               console.log("\nNothing was committed or published.");
+
+              const reviewedRiskPolicy = assessRiskPolicy(
+                plan,
+                review.changedFiles,
+              );
+              console.log(`\n${formatRiskPolicy(reviewedRiskPolicy)}`);
+              await recordQualitySafely(
+                () => recordRiskPolicyEvent(
+                  repositoryPath,
+                  reviewedRiskPolicy.level,
+                  "implementation",
+                ),
+              );
 
               if (operatingMode === "build-with-me") {
                 console.log(
@@ -782,96 +1127,20 @@ try {
                 );
               }
 
-              if (
-                verification.length > 0 &&
-                verification.every((result) => result.passed)
-              ) {
-                const commitMessage = proposeCommitMessage(plan);
-                console.log(`\nProposed commit message:\n${commitMessage}`);
-                let commitChoice: CommitChoice | undefined;
-                while (!commitChoice) {
-                  commitChoice = parseCommitChoice(
-                    await terminal.question("\nChoose [C]ommit or [S]top here:\n> "),
-                  );
-                  if (!commitChoice) console.log("Please enter commit or stop.");
-                }
-                if (commitChoice === "commit") {
-                  const commit = await commitReviewedChanges(
-                    repositoryPath,
-                    commitMessage,
-                    review,
-                  );
-                  console.log(`\nReviewed changes committed: ${commit}`);
-                  let pushChoice: PushChoice | undefined;
-                  while (!pushChoice) {
-                    pushChoice = parsePushChoice(
-                      await terminal.question("\nChoose [P]ush or [S]top here:\n> "),
-                    );
-                    if (!pushChoice) console.log("Please enter push or stop.");
-                  }
-                  if (pushChoice === "push") {
-                    const branch = await pushImplementationBranch(repositoryPath);
-                    console.log(`\nBranch pushed: ${branch}`);
-                    let pullRequestChoice: PullRequestChoice | undefined;
-                    while (!pullRequestChoice) {
-                      pullRequestChoice = parsePullRequestChoice(
-                        await terminal.question("\nChoose open [P]ull request or [S]top here:\n> "),
-                      );
-                      if (!pullRequestChoice) console.log("Please enter pull request or stop.");
-                    }
-                    if (pullRequestChoice === "pull-request") {
-                      console.log("\nWho will own the pull-request review?");
-                      console.log(`[I] ${reviewOwnerDescriptions.operator}`);
-                      console.log(`[H] ${reviewOwnerDescriptions.maintainer}`);
-                      let reviewOwner: ReviewOwner | undefined;
-                      while (!reviewOwner) {
-                        reviewOwner = parseReviewOwner(
-                          await terminal.question("> "),
-                        );
-                        if (!reviewOwner) console.log("Please enter I or H.");
-                      }
-                      const handoff: ReviewHandoff = { owner: reviewOwner };
-                      if (reviewOwner === "maintainer") {
-                        const reviewer = (
-                          await terminal.question(
-                            "GitHub username or team to request (optional; press Enter to skip):\n> ",
-                          )
-                        ).trim();
-                        if (reviewer) handoff.reviewer = reviewer;
-                      }
-                      const url = await openPullRequest(
-                        repositoryPath,
-                        plan,
-                        review,
-                        handoff,
-                      );
-                      await recordCurrentSession();
-                      console.log(`\nPull request opened: ${url}`);
-                      if (handoff.reviewer) {
-                        await requestPullRequestReview(
-                          repositoryPath,
-                          url,
-                          handoff.reviewer,
-                        );
-                        console.log(`Review requested from ${handoff.reviewer}.`);
-                      }
-                      console.log(
-                        "Product-to-PR has stopped before merge. The repository maintainer must review the pull request and make the separate merge decision.",
-                      );
-                    }
-                  }
-                }
-              } else {
-                console.log(
-                  verification.length === 0
-                    ? "\nCommit is unavailable because no safe automated verification command was discovered. Add or document a verification command, then review again."
-                    : "\nCommit is unavailable because verification failed. Fix the local changes and verify again.",
-                );
-              }
+              await offerPublication({
+                repositoryPath,
+                plan,
+                review,
+                riskPolicy: reviewedRiskPolicy,
+                ask: (prompt) => terminal.question(prompt),
+                write: (message) => console.log(message),
+                recordCurrentSession,
+              });
             } else {
               console.log(
                 "\nStopped with local changes ready. No verification, commit, or publication was performed.",
               );
+            }
             }
           } else {
             console.log(
@@ -892,11 +1161,15 @@ try {
         }
 
         answers.push(`Requested modification — ${requestedChange}`);
-        reasoning = await reasonAboutFeature(
+        reasoning = await runRecoverableReadOnlyOperation(
           repositoryPath,
-          featureRequest,
-          repositoryOverview,
-          answers,
+          "product-reasoning",
+          () => reasonAboutFeature(
+            repositoryPath,
+            featureRequest,
+            repositoryOverview,
+            answers,
+          ),
         );
       }
     } catch (error) {
@@ -926,10 +1199,14 @@ try {
     }
   } else {
     const repositoryOverview = await inspectRepository(repositoryPath, featureRequest);
-    const reasoning = await reasonAboutFeature(
+    const reasoning = await runRecoverableReadOnlyOperation(
       repositoryPath,
-      featureRequest,
-      repositoryOverview,
+      "product-reasoning",
+      () => reasonAboutFeature(
+        repositoryPath,
+        featureRequest,
+        repositoryOverview,
+      ),
     );
     const plan = createProductPlan(
       featureRequest,
@@ -943,6 +1220,11 @@ try {
     console.log(formatEvaluationReport(specificationEvaluation));
     await recordQualitySafely(
       () => recordEvaluationEvent(repositoryPath, specificationEvaluation),
+    );
+    const riskPolicy = assessRiskPolicy(plan);
+    console.log(`\n${formatRiskPolicy(riskPolicy)}`);
+    await recordQualitySafely(
+      () => recordRiskPolicyEvent(repositoryPath, riskPolicy.level, "plan"),
     );
     if (outputPath) {
       await saveRequestedOutput(outputPath, specification);

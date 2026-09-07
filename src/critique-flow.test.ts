@@ -115,6 +115,36 @@ describe("critique flow", () => {
     }
   });
 
+  it("retries only transient reviewer failures and keeps the retry count bounded", async () => {
+    const repositoryPath = await mkdtemp(join(tmpdir(), "product-to-pr-critique-flow-"));
+    const messages: string[] = [];
+    let attempts = 0;
+    try {
+      const result = await runCritiqueFlow({
+        repositoryPath,
+        artifact: "specification",
+        producer: "codex",
+        prompt: "evidence",
+        conversation: {
+          ask: async () => "run",
+          write: (message) => messages.push(message),
+        },
+        retry: { wait: async () => undefined },
+        runner: async () => {
+          attempts += 1;
+          if (attempts < 3) throw new Error("503 temporarily unavailable");
+          return report;
+        },
+      });
+      expect(result.status).toBe("completed");
+      expect(attempts).toBe(3);
+      expect(messages.filter((message) => message.includes("Retrying safely")))
+        .toHaveLength(2);
+    } finally {
+      await rm(repositoryPath, { recursive: true, force: true });
+    }
+  });
+
   it("parses only the three documented choices", () => {
     expect(parseCritiqueChoice("R")).toBe("run");
     expect(parseCritiqueChoice("manual")).toBe("manual");
