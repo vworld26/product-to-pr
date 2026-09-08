@@ -6,9 +6,11 @@ request while keeping you in control of every consequential step.**
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/vworld26/product-to-pr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-<!-- DEMO: replace this comment with the terminal recording once it exists.
-     asciinema:  [![asciicast](https://asciinema.org/a/<id>.svg)](https://asciinema.org/a/<id>)
-     or a GIF:   ![A run of Product-to-PR](docs/media/demo.gif)                                   -->
+[![A real Product-to-PR run from feature request to opened pull request](docs/media/product-to-pr-demo.gif)](https://github.com/vworld26/product-to-pr-demo/pull/1)
+
+[Watch the MP4](docs/media/product-to-pr-demo.mp4) ·
+[Explore the practice repository](https://github.com/vworld26/product-to-pr-demo) ·
+[Review the demonstration pull request](https://github.com/vworld26/product-to-pr-demo/pull/1)
 
 ## Try it
 
