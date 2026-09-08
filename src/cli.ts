@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 
 import {
@@ -363,8 +364,16 @@ try {
     resumePath,
     forcePreflight,
     clearPreflightHistory,
+    showVersion,
   } =
     parseCliArguments(process.argv.slice(2));
+  if (showVersion) {
+    const metadata = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    );
+    console.log(metadata.version);
+    process.exit(0);
+  }
   let featureRequest = requestedFeature;
 
   if (!repositoryInput) {

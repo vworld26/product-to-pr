@@ -16,6 +16,7 @@ export type CliArguments = {
   resumePath?: string;
   forcePreflight: boolean;
   clearPreflightHistory: boolean;
+  showVersion?: true;
 };
 
 export class MissingOutputDirectoryError extends Error {
@@ -25,6 +26,16 @@ export class MissingOutputDirectoryError extends Error {
 }
 
 export function parseCliArguments(args: string[]): CliArguments {
+  if (args.includes("--version")) {
+    return {
+      repositoryPath: "",
+      featureRequest: "",
+      forcePreflight: false,
+      clearPreflightHistory: false,
+      showVersion: true,
+    };
+  }
+
   const [repositoryPath = "", ...remaining] = args;
   const featureParts: string[] = [];
   let outputPath: string | undefined;

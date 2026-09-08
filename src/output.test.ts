@@ -6,8 +6,11 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -17,6 +20,27 @@ import {
 } from "./output.js";
 
 describe("parseCliArguments", () => {
+  it("recognizes --version without a repository or feature request", () => {
+    expect(parseCliArguments(["--version"]))
+      .toMatchObject({ showVersion: true, repositoryPath: "", featureRequest: "" });
+  });
+
+  it("prints the package version before repository or provider startup", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "product-to-pr-version-"));
+    const metadata = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    );
+    try {
+      const output = execFileSync(process.execPath, [
+        "--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href,
+        fileURLToPath(new URL("./cli.ts", import.meta.url)), "--version",
+      ], { cwd: directory, encoding: "utf8", env: { ...process.env, PATH: "" } });
+      expect(output.trim()).toBe(metadata.version);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("separates --output from the feature request", () => {
     expect(
       parseCliArguments([
