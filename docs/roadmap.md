@@ -110,6 +110,9 @@ Current capabilities:
   history.
 - repository-persisted Guide me, Build with me, and Take the lead modes that
   adjust routine pauses and explanation while preserving publication approvals.
+- journey narration that applies the selected mode before preflight, previews
+  every stage, explains its boundary, and recaps what happened and what comes
+  next;
 - record whether the operator or another repository maintainer owns review,
   optionally request that reviewer, and always stop before merge.
 

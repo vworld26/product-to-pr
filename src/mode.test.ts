@@ -41,12 +41,12 @@ describe("operating modes", () => {
       guide: {
         label: "Guide me",
         description:
-          "Explain each stage and ask before implementation and verification.",
+          "Introduce every stage, explain unfamiliar terms, and ask before implementation and verification.",
       },
       "build-with-me": {
         label: "Build with me",
         description:
-          "Handle routine implementation and verification, then bring back the review.",
+          "Show concise stage transitions, handle routine implementation and verification, then bring back the review.",
       },
       "take-the-lead": {
         label: "Take the lead",

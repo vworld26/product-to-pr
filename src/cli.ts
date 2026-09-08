@@ -52,6 +52,14 @@ import {
 } from "./event-log.js";
 import { formatPlan } from "./format.js";
 import {
+  formatJourneyIntroduction,
+  formatPublicationAction,
+  formatSessionOpening,
+  formatStageCompletion,
+  formatStageIntroduction,
+  type JourneyStage,
+} from "./guidance.js";
+import {
   createManualImplementationRunner,
   preserveImplementationPackage,
 } from "./implementation.js";
@@ -201,6 +209,7 @@ async function offerPublication(options: {
   plan: ProductPlan;
   review: LocalReview;
   riskPolicy: RiskPolicy;
+  operatingMode: OperatingMode;
   ask: (prompt: string) => Promise<string>;
   write: (message: string) => void;
   recordCurrentSession: () => Promise<void>;
@@ -235,6 +244,16 @@ async function offerPublication(options: {
     return;
   }
 
+  const publishGuidance = formatStageIntroduction(
+    "publish",
+    options.operatingMode,
+  );
+  if (publishGuidance) options.write(`\n${publishGuidance}\n`);
+  const commitGuidance = formatPublicationAction(
+    "commit",
+    options.operatingMode,
+  );
+  if (commitGuidance) options.write(`\n${commitGuidance}`);
   const commitMessage = proposeCommitMessage(options.plan);
   options.write(`\nProposed commit message:\n${commitMessage}`);
   let commitChoice: CommitChoice | undefined;
@@ -252,6 +271,8 @@ async function offerPublication(options: {
     options.review,
   );
   options.write(`\nReviewed changes committed: ${commit}`);
+  const pushGuidance = formatPublicationAction("push", options.operatingMode);
+  if (pushGuidance) options.write(`\n${pushGuidance}`);
   let pushChoice: PushChoice | undefined;
   while (!pushChoice) {
     pushChoice = parsePushChoice(
@@ -263,6 +284,11 @@ async function offerPublication(options: {
 
   const branch = await pushImplementationBranch(options.repositoryPath);
   options.write(`\nBranch pushed: ${branch}`);
+  const pullRequestGuidance = formatPublicationAction(
+    "pull-request",
+    options.operatingMode,
+  );
+  if (pullRequestGuidance) options.write(`\n${pullRequestGuidance}`);
   let pullRequestChoice: PullRequestChoice | undefined;
   while (!pullRequestChoice) {
     pullRequestChoice = parsePullRequestChoice(
@@ -308,6 +334,8 @@ async function offerPublication(options: {
   options.write(
     "Product-to-PR has stopped before merge. The repository maintainer must review the pull request and make the separate merge decision.",
   );
+  const completion = formatStageCompletion("publish", options.operatingMode);
+  if (completion) options.write(`\n${completion}`);
 }
 
 async function recordCritiqueResult(
@@ -387,6 +415,8 @@ try {
     );
   }
 
+  if (interactive) console.log(`\n${formatSessionOpening()}`);
+
   let preparedRepository: PreparedRepository;
   if (parseGitHubRepositoryUrl(repositoryInput)) {
     const setupTerminal = createInterface({
@@ -460,9 +490,71 @@ try {
       resumeSession = resumePath
         ? await loadResumableSession(resumePath, repositoryPath)
         : undefined;
+      let selectedOperatingMode: OperatingMode | undefined =
+        modeOverride && modeOverride !== "choose"
+          ? modeOverride
+          : modeOverride === "choose"
+          ? undefined
+          : resumeSession?.operatingMode
+          ? resumeSession.operatingMode
+          : await loadOperatingMode(repositoryPath);
+      if (!selectedOperatingMode) {
+        console.log(
+          "\nChoose how much explanation and how many routine pauses you want for this session:",
+        );
+        console.log(
+          `[G] ${operatingModes.guide.label} (recommended) — ${operatingModes.guide.description}`,
+        );
+        console.log(
+          `[B] ${operatingModes["build-with-me"].label} — ${operatingModes["build-with-me"].description}`,
+        );
+        console.log(
+          `[T] ${operatingModes["take-the-lead"].label} — ${operatingModes["take-the-lead"].description}`,
+        );
+        console.log("[S] Stop before starting — no planning or project changes.");
+        let modeChoice: ModeChoice | undefined;
+        while (!modeChoice) {
+          modeChoice = parseModeChoice(await terminal.question("> "));
+          if (!modeChoice) {
+            console.log("Please enter guide, build with me, take the lead, or stop.");
+          }
+        }
+        if (modeChoice === "stop") {
+          console.log(
+            "\nStopped before readiness checks. No project files or settings were changed.",
+          );
+          throw new PreflightStopped();
+        }
+        selectedOperatingMode = modeChoice;
+        await saveOperatingMode(repositoryPath, selectedOperatingMode);
+        console.log(`\nSaved ${selectedOperatingMode} for this repository.`);
+      } else {
+        console.log(`\nOperating mode: ${selectedOperatingMode}`);
+        console.log(operatingModes[selectedOperatingMode].description);
+      }
+      let operatingMode: OperatingMode = selectedOperatingMode;
+      if (resumeSession) {
+        resumeSession = await saveSessionOperatingMode(
+          resumeSession,
+          operatingMode,
+        );
+      }
+
+      const writeStageIntroduction = (stage: JourneyStage): void => {
+        const message = formatStageIntroduction(stage, operatingMode);
+        if (message) console.log(`\n${message}\n`);
+      };
+      const writeStageCompletion = (stage: JourneyStage): void => {
+        const message = formatStageCompletion(stage, operatingMode);
+        if (message) console.log(`\n${message}`);
+      };
+      const journeyIntroduction = formatJourneyIntroduction(operatingMode);
+      if (journeyIntroduction) console.log(`\n${journeyIntroduction}`);
+
       const checkpointProvider = resumeSession && hasImplementationCheckpoint(resumeSession)
         ? resumeSession.implementation.provider
         : undefined;
+      writeStageIntroduction("preflight");
       const preflight = await runGuidedPreflight({
         repositoryPath,
         providerOverride: checkpointProvider ?? providerOverride,
@@ -477,14 +569,20 @@ try {
         console.log("\nStopped before repository planning. No repository files or settings were changed.");
         throw new PreflightStopped();
       }
+      writeStageCompletion("preflight");
       let implementationProvider = preflight.provider;
       if (resumeSession && hasImplementationCheckpoint(resumeSession)) {
         implementationProvider = resumeSession.implementation.provider;
       }
       if (resumeSession) featureRequest = resumeSession.featureRequest;
       activeSessionPath = resumeSession?.sessionPath;
+      if (!resumeSession) writeStageIntroduction("inspect");
       const repositoryOverview = resumeSession?.plan.repositoryOverview ??
         await inspectRepository(repositoryPath, featureRequest);
+      if (!resumeSession) {
+        writeStageCompletion("inspect");
+        writeStageIntroduction("restate");
+      }
       let reasoning: ProductReasoning = resumeSession
         ? {
           title: resumeSession.plan.title,
@@ -588,6 +686,8 @@ try {
         answers.push("The user confirmed the plain-language feature interpretation.");
       }
 
+      writeStageCompletion("restate");
+      writeStageIntroduction("discover");
       if (reasoning.recommendedDefaults.length > 0) {
         console.log("\nRecommended defaults for low-risk choices:\n");
         reasoning.recommendedDefaults.forEach((recommendation, index) => {
@@ -661,8 +761,10 @@ try {
           answers,
         ),
       );
+      writeStageCompletion("discover");
       }
 
+      if (!resumeSession) writeStageIntroduction("specify");
       while (true) {
         const plan = resumeSession?.plan ?? createProductPlan(
           featureRequest,
@@ -786,58 +888,7 @@ try {
               ? "The previously saved local product changes remain unchanged."
               : "No product code was changed.",
           );
-
-          let operatingMode: OperatingMode | undefined =
-            modeOverride && modeOverride !== "choose"
-              ? modeOverride
-              : modeOverride === "choose"
-              ? undefined
-              : resumeSession?.operatingMode
-              ? resumeSession.operatingMode
-              : await loadOperatingMode(repositoryPath);
-          if (!operatingMode) {
-            console.log("\nHow would you like to continue?");
-            console.log(
-              `[G] ${operatingModes.guide.label} (recommended) — ${operatingModes.guide.description}`,
-            );
-            console.log(
-              `[B] ${operatingModes["build-with-me"].label} — ${operatingModes["build-with-me"].description}`,
-            );
-            console.log(
-              `[T] ${operatingModes["take-the-lead"].label} — ${operatingModes["take-the-lead"].description}`,
-            );
-            console.log("[S] Stop here — keep the approved specification for later.");
-            let modeChoice: ModeChoice | undefined;
-            while (!modeChoice) {
-              const answer = await terminal.question("> ");
-              modeChoice = parseModeChoice(answer);
-              if (!modeChoice) {
-                const offer = await maybeOfferBuildWithMe(answer);
-                if (offer === "accepted") modeChoice = "build-with-me";
-                else if (offer === "not-offered") {
-                  console.log("Please enter guide, build with me, take the lead, or stop.");
-                }
-              }
-            }
-            if (modeChoice === "stop") {
-              console.log(
-                "\nStopped after the approved specification. Implementation was not authorized.",
-              );
-              break;
-            }
-            operatingMode = modeChoice;
-            await saveOperatingMode(repositoryPath, operatingMode);
-            console.log(`\nSaved ${operatingMode} for this repository.`);
-          } else {
-            console.log(`\nOperating mode: ${operatingMode}`);
-            console.log(operatingModes[operatingMode].description);
-          }
-          if (resumeSession) {
-            resumeSession = await saveSessionOperatingMode(
-              resumeSession,
-              operatingMode,
-            );
-          }
+          writeStageCompletion("specify");
 
           let buildChoice: BuildChoice = "build";
           if (
@@ -899,6 +950,7 @@ try {
               }
               await assertImplementationProviderReady(implementationProvider);
 
+              writeStageIntroduction("branch");
               const branchName = await createImplementationBranch(
                 repositoryPath,
                 plan.title,
@@ -909,6 +961,7 @@ try {
                 plan,
               );
               console.log(`\nSafe implementation branch created: ${branchName}`);
+              writeStageCompletion("branch");
               if (!usesConciseRoutineUpdates(operatingMode)) {
                 console.log(
                   `Implementation checklist saved to ${implementationPath}`,
@@ -917,6 +970,7 @@ try {
               console.log(
                 `\nImplementation provider: ${implementationProviders[implementationProvider].label}`,
               );
+              writeStageIntroduction("implement");
               console.log("Implementing the approved change locally...");
               let implementationRunner: ImplementationRunner;
               if (implementationProvider === "manual") {
@@ -955,10 +1009,12 @@ try {
                 implementationPath,
               );
               console.log(`Recovery checkpoint saved to ${resumeSession.sessionPath}`);
+              writeStageCompletion("implement");
             }
 
             if (resumeSession && hasVerificationCheckpoint(resumeSession)) {
               const saved = resumeSession.verification;
+              writeStageIntroduction("review");
               console.log(
                 `\nValidated verification and critique checkpoint from ${saved.completedAt}.`,
               );
@@ -986,16 +1042,19 @@ try {
                   "implementation",
                 ),
               );
+              writeStageCompletion("review");
               await offerPublication({
                 repositoryPath,
                 plan,
                 review: saved.review,
                 riskPolicy: reviewedRiskPolicy,
+                operatingMode,
                 ask: (prompt) => terminal.question(prompt),
                 write: (message) => console.log(message),
                 recordCurrentSession,
               });
             } else {
+            writeStageIntroduction("verify");
             const verificationDiscovery = await discoverVerification(
               repositoryPath,
             );
@@ -1048,6 +1107,8 @@ try {
                 repositoryPath,
                 verificationCommands,
               );
+              writeStageCompletion("verify");
+              writeStageIntroduction("review");
               const review = await runRecoverableReadOnlyOperation(
                 repositoryPath,
                 "acceptance-review",
@@ -1107,6 +1168,7 @@ try {
               );
               console.log(`Recovery checkpoint updated at ${resumeSession.sessionPath}`);
               console.log("\nNothing was committed or published.");
+              writeStageCompletion("review");
 
               const reviewedRiskPolicy = assessRiskPolicy(
                 plan,
@@ -1132,6 +1194,7 @@ try {
                 plan,
                 review,
                 riskPolicy: reviewedRiskPolicy,
+                operatingMode,
                 ask: (prompt) => terminal.question(prompt),
                 write: (message) => console.log(message),
                 recordCurrentSession,
