@@ -246,8 +246,8 @@ changing branch isolation, verification evidence, or approval boundaries.
 Product planning and acceptance review remain Codex-backed in this version, so
 Codex readiness is required regardless of the implementation choice.
 
-- **Guide me** — Explain each stage and ask before implementation and verification.
-- **Build with me** — Handle routine implementation and verification, then bring back the review.
+- **Guide me** — Introduce every stage, explain unfamiliar terms, and ask before implementation and verification.
+- **Build with me** — Show concise stage transitions, handle routine implementation and verification, then bring back the review.
 - **Take the lead** — Move through routine work with less explanation while preserving safety stops.
 
 Consequential actions remain separate choices in every mode.
@@ -257,8 +257,9 @@ informed Build with me offer during a Guide me session. Product-to-PR does not
 infer emotion from writing style, does not switch automatically, and does not
 repeat a declined offer during that session.
 
-The product asks about this after specification approval, when the user has
-enough context to understand what they are authorizing. A saved repository
+The product loads or asks for this choice before preflight so the selected level
+shapes the complete journey. Guide me previews why each stage matters and what
+it can change, then recaps what happened and what comes next. A saved repository
 preference can be overridden for one run, and `--mode choose` reopens the choice.
 
 ### Mixed-language inspection

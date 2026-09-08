@@ -3,14 +3,14 @@
 **Product-to-PR turns a plain-language feature request into a reviewed pull
 request while keeping you in control of every consequential step.**
 
+[![Product-to-PR in 80 seconds](https://vstewardgroup.com/video/product-to-pr-demo-poster.jpg)](https://vstewardgroup.com/products/product-to-pr/#see-it)
+
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/vworld26/product-to-pr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[![A real Product-to-PR run from feature request to opened pull request](docs/media/product-to-pr-demo.gif)](https://github.com/vworld26/product-to-pr-demo/pull/1)
-
-[Watch the MP4](docs/media/product-to-pr-demo.mp4) ·
+[Watch the 80-second guided demo](https://vstewardgroup.com/products/product-to-pr/#see-it) ·
 [Explore the practice repository](https://github.com/vworld26/product-to-pr-demo) ·
-[Review the demonstration pull request](https://github.com/vworld26/product-to-pr-demo/pull/1)
+[Review the demonstration pull request](https://github.com/vworld26/product-to-pr-demo/pull/2)
 
 ## Try it
 
@@ -55,9 +55,9 @@ Ten steps from idea to pull request. It explains each one and stops for your
 approval before anything that matters.
 
 1. **Preflight** checks the repository, Git, GitHub, the required Codex planning service, and your selected implementation provider, then asks for one confirmation of the risks.
-2. **Restate** turns your one-line request into plain language you confirm or correct.
-3. **Discover** asks focused product questions. Small reversible decisions are grouped; anything touching scope, users, data, safety, or outcomes gets its own question.
-4. **Inspect** reads the codebase: structure, entry points, tests, and any instructions the repo already carries for AI agents.
+2. **Inspect** reads the codebase: structure, entry points, tests, and any instructions the repo already carries for AI agents.
+3. **Restate** turns your one-line request into plain language you confirm or correct.
+4. **Discover** asks focused product questions. Small reversible decisions are grouped; anything touching scope, users, data, safety, or outcomes gets its own question.
 5. **Specify** writes the spec, labelling every decision by where it came from: something you confirmed, evidence in the code, a recommended default, or an assumption still open. Approved specs are saved so you can stop and resume.
 6. **Branch** creates a working branch, after you approve, so nothing touches your main code.
 7. **Implement** hands the approved spec to Codex, Claude Code, or a written prompt. During this stage, the agent can edit only the local implementation and cannot run checks or publish anything.
@@ -67,6 +67,8 @@ approval before anything that matters.
 
 Every approval is a real stop. After the specification is approved, you can end
 at each major checkpoint with saved work and a clear record of where you are.
+Guide me introduces every stage before it begins, explains why it matters and
+what it can change, then recaps what happened and what comes next.
 
 ## Who it is for
 
@@ -270,8 +272,8 @@ still require manual review.
 
 ## Collaboration levels
 
-- **Guide me** — Explain each stage and ask before implementation and verification.
-- **Build with me** — Handle routine implementation and verification, then bring back the review.
+- **Guide me** — Introduce every stage, explain unfamiliar terms, and ask before implementation and verification.
+- **Build with me** — Show concise stage transitions, handle routine implementation and verification, then bring back the review.
 - **Take the lead** — Move through routine work with less explanation while preserving safety stops.
 
 Collaboration level controls how often Product-to-PR pauses. Implementation
