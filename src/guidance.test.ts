@@ -6,6 +6,7 @@ import {
   formatSessionOpening,
   formatStageCompletion,
   formatStageIntroduction,
+  formatVerificationConfigurationChange,
   journeyStages,
   type JourneyStage,
 } from "./guidance.js";
@@ -63,9 +64,24 @@ describe("journey guidance", () => {
     expect(formatStageCompletion("verify", "build-with-me")).toContain(
       "Step 8 complete",
     );
+    expect(formatStageCompletion("branch", "guide")).toContain(
+      "before tests run",
+    );
     expect(formatJourneyIntroduction("take-the-lead")).toBeUndefined();
     expect(formatStageIntroduction("verify", "take-the-lead")).toBeUndefined();
     expect(formatStageCompletion("verify", "take-the-lead")).toBeUndefined();
+  });
+
+  it("explains a changed verification setup without leading with jargon", () => {
+    const guide = formatVerificationConfigurationChange(
+      ["package.json", "AGENTS.md"],
+      "guide",
+    );
+    expect(guide).toMatch(/^The project’s test instructions changed/);
+    expect(guide).toContain("Technical details:");
+    expect(guide).toContain("`package.json`");
+    expect(formatVerificationConfigurationChange(["package.json"], "build-with-me"))
+      .not.toContain("Technical details:");
   });
 
   it("explains each publication boundary before asking", () => {

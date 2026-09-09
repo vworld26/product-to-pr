@@ -105,7 +105,7 @@ export const journeyStages: Record<JourneyStage, StageGuidance> = {
     result:
       "The implementation branch is ready. The project’s main branch remains unchanged.",
     comingUp:
-      "Next, the selected implementation provider will change only the files needed by the approved specification.",
+      "Next, the selected implementation provider will change only the files needed by the approved specification. Later, before tests run, I’ll check whether this project needs its own tools installed. If it does, I’ll explain and ask first.",
   },
   implement: {
     number: 7,
@@ -267,4 +267,16 @@ export function formatPublicationAction(
   if (mode === "take-the-lead") return undefined;
   const [next, explanation] = publicationActions[action];
   return mode === "guide" ? `${next}\n${explanation}` : next;
+}
+
+export function formatVerificationConfigurationChange(
+  sourcePaths: string[],
+  mode: OperatingMode,
+): string {
+  const summary = "The project’s test instructions changed while the AI was working, so I will not run them automatically.";
+  if (mode !== "guide" || sourcePaths.length === 0) return summary;
+  return [
+    summary,
+    `Technical details: Product-to-PR recorded the trusted test settings from ${sourcePaths.map((path) => `\`${path}\``).join(", ")}. Review those files before starting a new implementation session.`,
+  ].join("\n");
 }

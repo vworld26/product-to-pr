@@ -57,6 +57,7 @@ import {
   formatSessionOpening,
   formatStageCompletion,
   formatStageIntroduction,
+  formatVerificationConfigurationChange,
   type JourneyStage,
 } from "./guidance.js";
 import {
@@ -1137,7 +1138,10 @@ try {
             if (!baselineMatches) {
               console.log(
                 verificationBaseline
-                  ? "- Verification configuration changed after implementation began. Product-to-PR will not run commands whose trust source changed; review the change and start a new implementation session if it is intentional."
+                  ? `- ${formatVerificationConfigurationChange(
+                    verificationBaseline.trustSourcePaths,
+                    operatingMode,
+                  )}`
                   : "- This saved session has no pre-implementation verification baseline. Product-to-PR will not run verification automatically; start a new implementation session to establish one.",
               );
             }
