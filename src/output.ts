@@ -17,7 +17,25 @@ export type CliArguments = {
   forcePreflight: boolean;
   clearPreflightHistory: boolean;
   showVersion?: true;
+  showHelp?: true;
 };
+
+export function formatCliHelp(): string {
+  return [
+    "Product-to-PR turns a feature idea and a repository into a review-ready pull request.",
+    "",
+    "Start: npm run dev -- <repository-folder-or-github-url> \"Your feature idea\"",
+    "",
+    "Useful options:",
+    "  --mode guide|build-with-me|take-the-lead|choose  Choose how much guidance you receive.",
+    "  --provider codex|claude|manual                    Choose who makes local edits.",
+    "  --resume <session.json>                            Continue saved approved work.",
+    "  --output <plan.md>                                 Save a copy of the specification.",
+    "  --preflight                                        Repeat the safe setup check.",
+    "",
+    "Product-to-PR explains and asks before consequential actions. It does not merge pull requests.",
+  ].join("\n");
+}
 
 export class MissingOutputDirectoryError extends Error {
   constructor(public readonly directoryPath: string) {
@@ -27,6 +45,9 @@ export class MissingOutputDirectoryError extends Error {
 
 export function parseCliArguments(args: string[]): CliArguments {
   if (args.includes("--version")) {
+    if (args.length !== 1) {
+      throw new Error("The --version option must be used alone.");
+    }
     return {
       repositoryPath: "",
       featureRequest: "",
@@ -36,6 +57,12 @@ export function parseCliArguments(args: string[]): CliArguments {
     };
   }
 
+  if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
+    return {
+      repositoryPath: "", featureRequest: "", forcePreflight: false,
+      clearPreflightHistory: false, showHelp: true,
+    };
+  }
   const [repositoryPath = "", ...remaining] = args;
   const featureParts: string[] = [];
   let outputPath: string | undefined;

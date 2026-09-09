@@ -53,9 +53,19 @@ import {
 } from "./event-log.js";
 import { formatPlan } from "./format.js";
 import {
+  formatJourneyIntroduction,
+  formatPublicationAction,
+  formatSessionOpening,
+  formatStageCompletion,
+  formatStageIntroduction,
+  formatVerificationConfigurationChange,
+  type JourneyStage,
+} from "./guidance.js";
+import {
   createManualImplementationRunner,
   preserveImplementationPackage,
 } from "./implementation.js";
+import { installDependencies, suggestedDependencyInstall } from "./dependencies.js";
 import { inspectRepository } from "./inspect.js";
 import {
   buildWithMeOfferExplanation,
@@ -72,6 +82,7 @@ import {
 } from "./mode.js";
 import {
   MissingOutputDirectoryError,
+  formatCliHelp,
   parseCliArguments,
   writeOutputFile,
 } from "./output.js";
@@ -135,7 +146,12 @@ import {
   type LoadedSession,
 } from "./session.js";
 import { withTransientRetries } from "./retry.js";
-import { discoverVerification, runVerificationCommands } from "./verify.js";
+import {
+  captureVerificationBaseline,
+  discoverVerification,
+  runVerificationCommands,
+  verificationBaselineMatches,
+} from "./verify.js";
 
 class PreflightStopped extends Error {}
 
@@ -202,6 +218,7 @@ async function offerPublication(options: {
   plan: ProductPlan;
   review: LocalReview;
   riskPolicy: RiskPolicy;
+  operatingMode: OperatingMode;
   ask: (prompt: string) => Promise<string>;
   write: (message: string) => void;
   recordCurrentSession: () => Promise<void>;
@@ -236,6 +253,16 @@ async function offerPublication(options: {
     return;
   }
 
+  const publishGuidance = formatStageIntroduction(
+    "publish",
+    options.operatingMode,
+  );
+  if (publishGuidance) options.write(`\n${publishGuidance}\n`);
+  const commitGuidance = formatPublicationAction(
+    "commit",
+    options.operatingMode,
+  );
+  if (commitGuidance) options.write(`\n${commitGuidance}`);
   const commitMessage = proposeCommitMessage(options.plan);
   options.write(`\nProposed commit message:\n${commitMessage}`);
   let commitChoice: CommitChoice | undefined;
@@ -253,6 +280,8 @@ async function offerPublication(options: {
     options.review,
   );
   options.write(`\nReviewed changes committed: ${commit}`);
+  const pushGuidance = formatPublicationAction("push", options.operatingMode);
+  if (pushGuidance) options.write(`\n${pushGuidance}`);
   let pushChoice: PushChoice | undefined;
   while (!pushChoice) {
     pushChoice = parsePushChoice(
@@ -264,6 +293,11 @@ async function offerPublication(options: {
 
   const branch = await pushImplementationBranch(options.repositoryPath);
   options.write(`\nBranch pushed: ${branch}`);
+  const pullRequestGuidance = formatPublicationAction(
+    "pull-request",
+    options.operatingMode,
+  );
+  if (pullRequestGuidance) options.write(`\n${pullRequestGuidance}`);
   let pullRequestChoice: PullRequestChoice | undefined;
   while (!pullRequestChoice) {
     pullRequestChoice = parsePullRequestChoice(
@@ -309,6 +343,8 @@ async function offerPublication(options: {
   options.write(
     "Product-to-PR has stopped before merge. The repository maintainer must review the pull request and make the separate merge decision.",
   );
+  const completion = formatStageCompletion("publish", options.operatingMode);
+  if (completion) options.write(`\n${completion}`);
 }
 
 async function recordCritiqueResult(
@@ -365,6 +401,7 @@ try {
     forcePreflight,
     clearPreflightHistory,
     showVersion,
+    showHelp,
   } =
     parseCliArguments(process.argv.slice(2));
   if (showVersion) {
@@ -372,6 +409,10 @@ try {
       await readFile(new URL("../package.json", import.meta.url), "utf8"),
     );
     console.log(metadata.version);
+    process.exit(0);
+  }
+  if (showHelp) {
+    console.log(formatCliHelp());
     process.exit(0);
   }
   let featureRequest = requestedFeature;
@@ -395,6 +436,8 @@ try {
       "GitHub URLs require an interactive run so you can approve the temporary working folder. A local repository path still works non-interactively.",
     );
   }
+
+  if (interactive) console.log(`\n${formatSessionOpening()}`);
 
   let preparedRepository: PreparedRepository;
   if (parseGitHubRepositoryUrl(repositoryInput)) {
@@ -422,7 +465,7 @@ try {
             return false;
           }
           console.log("\nWhich version of the GitHub repository should be used?");
-          console.log("[D] Default branch — start from the repository's main version.");
+          console.log("[D] Default branch — start from the repository's primary version.");
           console.log("[B] Another branch — include work already pushed by you or another agent.");
           let sourceChoice: RepositorySourceChoice | undefined;
           while (!sourceChoice) {
@@ -469,9 +512,71 @@ try {
       resumeSession = resumePath
         ? await loadResumableSession(resumePath, repositoryPath)
         : undefined;
+      let selectedOperatingMode: OperatingMode | undefined =
+        modeOverride && modeOverride !== "choose"
+          ? modeOverride
+          : modeOverride === "choose"
+          ? undefined
+          : resumeSession?.operatingMode
+          ? resumeSession.operatingMode
+          : await loadOperatingMode(repositoryPath);
+      if (!selectedOperatingMode) {
+        console.log(
+          "\nChoose how much explanation and how many routine pauses you want for this session:",
+        );
+        console.log(
+          `[G] ${operatingModes.guide.label} (recommended) — ${operatingModes.guide.description}`,
+        );
+        console.log(
+          `[B] ${operatingModes["build-with-me"].label} — ${operatingModes["build-with-me"].description}`,
+        );
+        console.log(
+          `[T] ${operatingModes["take-the-lead"].label} — ${operatingModes["take-the-lead"].description}`,
+        );
+        console.log("[S] Stop before starting — no planning or project changes.");
+        let modeChoice: ModeChoice | undefined;
+        while (!modeChoice) {
+          modeChoice = parseModeChoice(await terminal.question("> "));
+          if (!modeChoice) {
+            console.log("Please enter guide, build with me, take the lead, or stop.");
+          }
+        }
+        if (modeChoice === "stop") {
+          console.log(
+            "\nStopped before readiness checks. No project files or settings were changed.",
+          );
+          throw new PreflightStopped();
+        }
+        selectedOperatingMode = modeChoice;
+        await saveOperatingMode(repositoryPath, selectedOperatingMode);
+        console.log(`\nSaved ${selectedOperatingMode} for this repository.`);
+      } else {
+        console.log(`\nOperating mode: ${selectedOperatingMode}`);
+        console.log(operatingModes[selectedOperatingMode].description);
+      }
+      let operatingMode: OperatingMode = selectedOperatingMode;
+      if (resumeSession) {
+        resumeSession = await saveSessionOperatingMode(
+          resumeSession,
+          operatingMode,
+        );
+      }
+
+      const writeStageIntroduction = (stage: JourneyStage): void => {
+        const message = formatStageIntroduction(stage, operatingMode);
+        if (message) console.log(`\n${message}\n`);
+      };
+      const writeStageCompletion = (stage: JourneyStage): void => {
+        const message = formatStageCompletion(stage, operatingMode);
+        if (message) console.log(`\n${message}`);
+      };
+      const journeyIntroduction = formatJourneyIntroduction(operatingMode);
+      if (journeyIntroduction) console.log(`\n${journeyIntroduction}`);
+
       const checkpointProvider = resumeSession && hasImplementationCheckpoint(resumeSession)
         ? resumeSession.implementation.provider
         : undefined;
+      writeStageIntroduction("preflight");
       const preflight = await runGuidedPreflight({
         repositoryPath,
         providerOverride: checkpointProvider ?? providerOverride,
@@ -486,14 +591,20 @@ try {
         console.log("\nStopped before repository planning. No repository files or settings were changed.");
         throw new PreflightStopped();
       }
+      writeStageCompletion("preflight");
       let implementationProvider = preflight.provider;
       if (resumeSession && hasImplementationCheckpoint(resumeSession)) {
         implementationProvider = resumeSession.implementation.provider;
       }
       if (resumeSession) featureRequest = resumeSession.featureRequest;
       activeSessionPath = resumeSession?.sessionPath;
+      if (!resumeSession) writeStageIntroduction("inspect");
       const repositoryOverview = resumeSession?.plan.repositoryOverview ??
         await inspectRepository(repositoryPath, featureRequest);
+      if (!resumeSession) {
+        writeStageCompletion("inspect");
+        writeStageIntroduction("restate");
+      }
       let reasoning: ProductReasoning = resumeSession
         ? {
           title: resumeSession.plan.title,
@@ -597,6 +708,8 @@ try {
         answers.push("The user confirmed the plain-language feature interpretation.");
       }
 
+      writeStageCompletion("restate");
+      writeStageIntroduction("discover");
       if (reasoning.recommendedDefaults.length > 0) {
         console.log("\nRecommended defaults for low-risk choices:\n");
         reasoning.recommendedDefaults.forEach((recommendation, index) => {
@@ -670,8 +783,10 @@ try {
           answers,
         ),
       );
+      writeStageCompletion("discover");
       }
 
+      if (!resumeSession) writeStageIntroduction("specify");
       while (true) {
         const plan = resumeSession?.plan ?? createProductPlan(
           featureRequest,
@@ -791,62 +906,14 @@ try {
           console.log("\nYour approved specification:\n");
           console.log(specification);
           console.log(
+            "\nProduct-to-PR saved local session material in .product-to-pr/. It will not stage these files for its own commits. If your repository does not ignore that folder, add `.product-to-pr/` to .gitignore before making unrelated manual commits.",
+          );
+          console.log(
             resumeSession && hasImplementationCheckpoint(resumeSession)
               ? "The previously saved local product changes remain unchanged."
               : "No product code was changed.",
           );
-
-          let operatingMode: OperatingMode | undefined =
-            modeOverride && modeOverride !== "choose"
-              ? modeOverride
-              : modeOverride === "choose"
-              ? undefined
-              : resumeSession?.operatingMode
-              ? resumeSession.operatingMode
-              : await loadOperatingMode(repositoryPath);
-          if (!operatingMode) {
-            console.log("\nHow would you like to continue?");
-            console.log(
-              `[G] ${operatingModes.guide.label} (recommended) — ${operatingModes.guide.description}`,
-            );
-            console.log(
-              `[B] ${operatingModes["build-with-me"].label} — ${operatingModes["build-with-me"].description}`,
-            );
-            console.log(
-              `[T] ${operatingModes["take-the-lead"].label} — ${operatingModes["take-the-lead"].description}`,
-            );
-            console.log("[S] Stop here — keep the approved specification for later.");
-            let modeChoice: ModeChoice | undefined;
-            while (!modeChoice) {
-              const answer = await terminal.question("> ");
-              modeChoice = parseModeChoice(answer);
-              if (!modeChoice) {
-                const offer = await maybeOfferBuildWithMe(answer);
-                if (offer === "accepted") modeChoice = "build-with-me";
-                else if (offer === "not-offered") {
-                  console.log("Please enter guide, build with me, take the lead, or stop.");
-                }
-              }
-            }
-            if (modeChoice === "stop") {
-              console.log(
-                "\nStopped after the approved specification. Implementation was not authorized.",
-              );
-              break;
-            }
-            operatingMode = modeChoice;
-            await saveOperatingMode(repositoryPath, operatingMode);
-            console.log(`\nSaved ${operatingMode} for this repository.`);
-          } else {
-            console.log(`\nOperating mode: ${operatingMode}`);
-            console.log(operatingModes[operatingMode].description);
-          }
-          if (resumeSession) {
-            resumeSession = await saveSessionOperatingMode(
-              resumeSession,
-              operatingMode,
-            );
-          }
+          writeStageCompletion("specify");
 
           let buildChoice: BuildChoice = "build";
           if (
@@ -908,6 +975,13 @@ try {
               }
               await assertImplementationProviderReady(implementationProvider);
 
+              // Capture the commands Product-to-PR is willing to run before an
+              // implementation provider can edit their configuration sources.
+              const verificationBaseline = await captureVerificationBaseline(
+                repositoryPath,
+              );
+
+              writeStageIntroduction("branch");
               const branchName = await createImplementationBranch(
                 repositoryPath,
                 plan.title,
@@ -918,6 +992,7 @@ try {
                 plan,
               );
               console.log(`\nSafe implementation branch created: ${branchName}`);
+              writeStageCompletion("branch");
               if (!usesConciseRoutineUpdates(operatingMode)) {
                 console.log(
                   `Implementation checklist saved to ${implementationPath}`,
@@ -926,6 +1001,7 @@ try {
               console.log(
                 `\nImplementation provider: ${implementationProviders[implementationProvider].label}`,
               );
+              writeStageIntroduction("implement");
               console.log("Implementing the approved change locally...");
               let implementationRunner: ImplementationRunner;
               if (implementationProvider === "manual") {
@@ -962,12 +1038,15 @@ try {
                 resumeSession,
                 implementationProvider,
                 implementationPath,
+                verificationBaseline,
               );
               console.log(`Recovery checkpoint saved to ${resumeSession.sessionPath}`);
+              writeStageCompletion("implement");
             }
 
             if (resumeSession && hasVerificationCheckpoint(resumeSession)) {
               const saved = resumeSession.verification;
+              writeStageIntroduction("review");
               console.log(
                 `\nValidated verification and critique checkpoint from ${saved.completedAt}.`,
               );
@@ -995,20 +1074,62 @@ try {
                   "implementation",
                 ),
               );
+              writeStageCompletion("review");
               await offerPublication({
                 repositoryPath,
                 plan,
                 review: saved.review,
                 riskPolicy: reviewedRiskPolicy,
+                operatingMode,
                 ask: (prompt) => terminal.question(prompt),
                 write: (message) => console.log(message),
                 recordCurrentSession,
               });
             } else {
+            writeStageIntroduction("verify");
             const verificationDiscovery = await discoverVerification(
               repositoryPath,
             );
-            const verificationCommands = verificationDiscovery.trustedCommands;
+            const verificationBaseline = resumeSession && hasImplementationCheckpoint(resumeSession)
+              ? resumeSession.implementation.verificationBaseline
+              : undefined;
+            let baselineMatches = verificationBaseline
+              ? await verificationBaselineMatches(repositoryPath, verificationBaseline)
+              : false;
+            const dependencyInstall = baselineMatches
+              ? await suggestedDependencyInstall(repositoryPath)
+              : undefined;
+            let dependencyInstallSkipped = false;
+            if (dependencyInstall) {
+              console.log(
+                `\nThis repository has Node dependencies that are not installed. ${dependencyInstall.command} is needed before its npm checks can run.`,
+              );
+              console.log(
+                "Installing dependencies can run repository-defined setup scripts. Review and approve it only if you trust this starting repository.",
+              );
+              let installChoice = "";
+              while (!['install', 'skip'].includes(installChoice)) {
+                installChoice = (await terminal.question(
+                  "Choose [I]nstall dependencies or [S]kip automated verification:\n> ",
+                )).trim().toLowerCase();
+                if (installChoice === "i") installChoice = "install";
+                if (installChoice === "s") installChoice = "skip";
+                if (!['install', 'skip'].includes(installChoice)) {
+                  console.log("Please enter install or skip.");
+                }
+              }
+              if (installChoice === "install") {
+                await installDependencies(repositoryPath, dependencyInstall);
+                baselineMatches = verificationBaseline
+                  ? await verificationBaselineMatches(repositoryPath, verificationBaseline)
+                  : false;
+              } else {
+                dependencyInstallSkipped = true;
+              }
+            }
+            const verificationCommands = baselineMatches && !dependencyInstallSkipped
+              ? verificationDiscovery.trustedCommands
+              : [];
             console.log(
               `\nVerification confidence: ${verificationDiscovery.confidence}`,
             );
@@ -1029,6 +1150,16 @@ try {
             verificationDiscovery.guidance.forEach((guidance) =>
               console.log(`- ${guidance}`)
             );
+            if (!baselineMatches) {
+              console.log(
+                verificationBaseline
+                  ? `- ${formatVerificationConfigurationChange(
+                    verificationBaseline.trustSourcePaths,
+                    operatingMode,
+                  )}`
+                  : "- This saved session has no pre-implementation verification baseline. Product-to-PR will not run verification automatically; start a new implementation session to establish one.",
+              );
+            }
             let verificationChoice: VerificationChoice = "verify";
             if (pausesBeforeRoutineWork(operatingMode)) {
               let guidedVerificationChoice: VerificationChoice | undefined;
@@ -1057,6 +1188,8 @@ try {
                 repositoryPath,
                 verificationCommands,
               );
+              writeStageCompletion("verify");
+              writeStageIntroduction("review");
               const review = await runRecoverableReadOnlyOperation(
                 repositoryPath,
                 "acceptance-review",
@@ -1116,6 +1249,7 @@ try {
               );
               console.log(`Recovery checkpoint updated at ${resumeSession.sessionPath}`);
               console.log("\nNothing was committed or published.");
+              writeStageCompletion("review");
 
               const reviewedRiskPolicy = assessRiskPolicy(
                 plan,
@@ -1141,6 +1275,7 @@ try {
                 plan,
                 review,
                 riskPolicy: reviewedRiskPolicy,
+                operatingMode,
                 ask: (prompt) => terminal.question(prompt),
                 write: (message) => console.log(message),
                 recordCurrentSession,

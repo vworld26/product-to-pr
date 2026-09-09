@@ -1,16 +1,30 @@
 # Product-to-PR
 
-**Product-to-PR turns a plain-language feature request into a reviewed pull
+**Product-to-PR turns a plain-language feature request into a review-ready pull
 request while keeping you in control of every consequential step.**
+
+[![Product-to-PR in 80 seconds](https://vstewardgroup.com/video/product-to-pr-demo-poster.jpg)](https://vstewardgroup.com/products/product-to-pr/#see-it)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/vworld26/product-to-pr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-<!-- DEMO: replace this comment with the terminal recording once it exists.
-     asciinema:  [![asciicast](https://asciinema.org/a/<id>.svg)](https://asciinema.org/a/<id>)
-     or a GIF:   ![A run of Product-to-PR](docs/media/demo.gif)                                   -->
+[Watch the 80-second guided demo](https://vstewardgroup.com/products/product-to-pr/#see-it) ·
+[Explore the practice repository](https://github.com/vworld26/product-to-pr-demo) ·
+[Review the demonstration pull request](https://github.com/vworld26/product-to-pr-demo/pull/2) ·
+[Run a guided dogfood session](docs/dogfood-checklist.md)
 
-## Try it
+## Start here
+
+Product-to-PR begins with two things: a repository and a plain-language feature
+idea. It checks the setup, reads the repository, restates the request in clear
+language, and creates a specification for you to approve before it changes
+code. It then stops at separate approvals for testing, committing, pushing,
+and opening a review-ready pull request. It never merges the pull request.
+
+### Use it on your computer
+
+Best when the code is already in a local folder or you want to use your
+existing development setup.
 
 ```bash
 git clone https://github.com/vworld26/product-to-pr
@@ -37,10 +51,21 @@ To check the installed Product-to-PR version without starting a workflow:
 npm run dev -- --version
 ```
 
-The Codespaces badge opens a browser-based development environment with Node,
-Git, and the GitHub CLI. You must still install and sign in to Codex before
-running Product-to-PR, and install and sign in to Claude Code if you select it
-for implementation.
+The `--version` flag must be used alone, without a repository, feature request,
+or other options.
+
+### Try it in your browser — GitHub Codespaces
+
+Best when the project is on GitHub and you do not want to install development
+tools locally. The Codespaces badge opens a browser-based Linux workspace with
+Node, Git, and the GitHub CLI, then installs Product-to-PR's dependencies. You
+must still install and sign in to your selected AI coding tool, such as Codex,
+before running Product-to-PR. Codespaces use is subject to your GitHub account's
+included allowance and any spending limits.
+
+Product-to-PR currently supports macOS and Linux environments. Windows has not
+yet been verified as a supported environment; Codespaces is one browser-based
+Linux alternative.
 
 ## Why this exists
 
@@ -59,9 +84,9 @@ Ten steps from idea to pull request. It explains each one and stops for your
 approval before anything that matters.
 
 1. **Preflight** checks the repository, Git, GitHub, the required Codex planning service, and your selected implementation provider, then asks for one confirmation of the risks.
-2. **Restate** turns your one-line request into plain language you confirm or correct.
-3. **Discover** asks focused product questions. Small reversible decisions are grouped; anything touching scope, users, data, safety, or outcomes gets its own question.
-4. **Inspect** reads the codebase: structure, entry points, tests, and any instructions the repo already carries for AI agents.
+2. **Inspect** reads the codebase: structure, entry points, tests, and any instructions the repo already carries for AI agents.
+3. **Restate** turns your one-line request into plain language you confirm or correct.
+4. **Discover** asks focused product questions. Small reversible decisions are grouped; anything touching scope, users, data, safety, or outcomes gets its own question.
 5. **Specify** writes the spec, labelling every decision by where it came from: something you confirmed, evidence in the code, a recommended default, or an assumption still open. Approved specs are saved so you can stop and resume.
 6. **Branch** creates a working branch, after you approve, so nothing touches your main code.
 7. **Implement** hands the approved spec to Codex, Claude Code, or a written prompt. During this stage, the agent can edit only the local implementation and cannot run checks or publish anything.
@@ -71,6 +96,8 @@ approval before anything that matters.
 
 Every approval is a real stop. After the specification is approved, you can end
 at each major checkpoint with saved work and a clear record of where you are.
+Guide me introduces every stage before it begins, explains why it matters and
+what it can change, then recaps what happened and what comes next.
 
 ## Who it is for
 
@@ -228,8 +255,8 @@ npm run evaluate
 The canonical rubric evaluates beginner clarity, repository grounding,
 requirement discipline, observable acceptance criteria, verification evidence,
 scope control, reviewability, and recovery guidance. Product-to-PR shows the
-finding and evidence behind every score. These evaluations are advisory; they
-do not silently approve or reject work.
+finding and evidence behind every score. These heuristic evaluations are
+advisory; they do not silently approve or reject work.
 
 Quality events are recorded outside the repository in the operating system's
 application-data folder. The append-only record contains timestamps, hashed
@@ -272,10 +299,22 @@ commands are rejected. Product-to-PR shows high, medium, or low verification
 confidence based on the automated evidence available and calls out checks that
 still require manual review.
 
+Product-to-PR records the trusted verification setup before implementation
+begins. If an implementation changes `package.json`, `pyproject.toml`,
+`pytest.ini`, `AGENTS.md`, or `SKILL.md`, it will not automatically run newly
+discovered commands. This guards against configuration changes during a run; it
+does not make an untrusted starting repository safe. Review a repository before
+approving dependency installation or any command it defines.
+
+Approved specifications and recovery checkpoints are stored locally in
+`.product-to-pr/`. Product-to-PR never stages them for its own commits. Add
+`.product-to-pr/` to the repository's `.gitignore` if it is not already there,
+so an unrelated manual commit does not accidentally include local session data.
+
 ## Collaboration levels
 
-- **Guide me** — Explain each stage and ask before implementation and verification.
-- **Build with me** — Handle routine implementation and verification, then bring back the review.
+- **Guide me** — Introduce every stage, explain unfamiliar terms, and ask before implementation and verification.
+- **Build with me** — Show concise stage transitions, handle routine implementation and verification, then bring back the review.
 - **Take the lead** — Move through routine work with less explanation while preserving safety stops.
 
 Collaboration level controls how often Product-to-PR pauses. Implementation
@@ -300,7 +339,8 @@ separate maintainer decisions in both situations.
 2. Change one output section and add a test.
 3. Create a Git branch and commit the change.
 4. Open a pull request explaining what changed and why.
-5. Add repository inspection in version 2.
+5. Trace one feature from its approved specification through a review-ready pull
+   request.
 
 ## Product direction
 

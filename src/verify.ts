@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 
@@ -19,6 +20,12 @@ export type VerificationDiscovery = {
   candidateCommands: string[];
   confidence: "high" | "medium" | "low";
   guidance: string[];
+};
+
+export type VerificationBaseline = {
+  trustedCommands: VerificationCommand[];
+  trustSourceDigest: string;
+  trustSourcePaths: string[];
 };
 
 const verificationScripts = ["typecheck", "lint", "test", "build"];
@@ -142,6 +149,57 @@ export async function discoverVerification(
       "No automated verification command was found. Add a known package or pytest configuration, or declare a safe command in AGENTS.md or SKILL.md.",
     ];
   return { trustedCommands, candidateCommands, confidence, guidance };
+}
+
+async function verificationTrustSources(
+  repositoryPath: string,
+): Promise<Array<{ path: string; content: string }>> {
+  const documentPaths = await findVerificationDocuments(repositoryPath);
+  const paths = [
+    "package.json",
+    "pyproject.toml",
+    "pytest.ini",
+    ...documentPaths.filter((path) =>
+      path.endsWith("AGENTS.md") || path.endsWith("SKILL.md")
+    ),
+  ].filter((path, index, values) => values.indexOf(path) === index).sort();
+  const sources = await Promise.all(paths.map(async (path) => {
+    try {
+      return { path, content: await readFile(join(repositoryPath, path), "utf8") };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    }
+  }));
+  return sources.filter((source): source is { path: string; content: string } => Boolean(source));
+}
+
+function commandDigestValue(command: VerificationCommand): string {
+  return `${command.command}\u0000${command.executable}\u0000${command.args.join("\u0000")}`;
+}
+
+export async function captureVerificationBaseline(
+  repositoryPath: string,
+): Promise<VerificationBaseline> {
+  const [discovery, sources] = await Promise.all([
+    discoverVerification(repositoryPath),
+    verificationTrustSources(repositoryPath),
+  ]);
+  return {
+    trustedCommands: discovery.trustedCommands,
+    trustSourceDigest: createHash("sha256").update(JSON.stringify(sources)).digest("hex"),
+    trustSourcePaths: sources.map((source) => source.path),
+  };
+}
+
+export async function verificationBaselineMatches(
+  repositoryPath: string,
+  baseline: VerificationBaseline,
+): Promise<boolean> {
+  const current = await captureVerificationBaseline(repositoryPath);
+  return current.trustSourceDigest === baseline.trustSourceDigest &&
+    JSON.stringify(current.trustedCommands.map(commandDigestValue)) ===
+      JSON.stringify(baseline.trustedCommands.map(commandDigestValue));
 }
 
 async function discoverConfiguredCommands(

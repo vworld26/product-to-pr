@@ -11,6 +11,7 @@ import type { ProductPlan } from "./plan.js";
 import type { ImplementationProvider } from "./provider.js";
 import type { PreparedRepository } from "./repository.js";
 import { readLocalChangeEvidence, type LocalReview } from "./review.js";
+import type { VerificationBaseline } from "./verify.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -41,6 +42,7 @@ export type ImplementationCheckpoint = {
   packageDigest: string;
   changeDigest: string;
   changedFiles: string[];
+  verificationBaseline?: VerificationBaseline;
   completedAt: string;
 };
 
@@ -155,13 +157,19 @@ function hasBase(value: unknown): value is SessionBase & { version: number; stag
 function isImplementationCheckpoint(value: unknown): value is ImplementationCheckpoint {
   if (!value || typeof value !== "object") return false;
   const checkpoint = value as Partial<ImplementationCheckpoint>;
+  const validBaseline = checkpoint.verificationBaseline === undefined ||
+    (typeof checkpoint.verificationBaseline === "object" &&
+      checkpoint.verificationBaseline !== null &&
+      Array.isArray(checkpoint.verificationBaseline.trustedCommands) &&
+      typeof checkpoint.verificationBaseline.trustSourceDigest === "string" &&
+      Array.isArray(checkpoint.verificationBaseline.trustSourcePaths));
   return isImplementationProvider(checkpoint.provider) &&
     typeof checkpoint.packagePath === "string" &&
     typeof checkpoint.packageDigest === "string" &&
     typeof checkpoint.changeDigest === "string" &&
     Array.isArray(checkpoint.changedFiles) &&
     checkpoint.changedFiles.every((item) => typeof item === "string") &&
-    typeof checkpoint.completedAt === "string";
+    typeof checkpoint.completedAt === "string" && validBaseline;
 }
 
 function isVerificationCheckpoint(value: unknown): value is VerificationCheckpoint {
@@ -398,6 +406,7 @@ export async function saveImplementationCheckpoint(
   session: LoadedSession,
   provider: ImplementationProvider,
   implementationPackagePath: string,
+  verificationBaseline?: VerificationBaseline,
   completedAt = new Date(),
 ): Promise<LoadedSession> {
   if (session.stage !== "specification-approved") {
@@ -434,6 +443,7 @@ export async function saveImplementationCheckpoint(
       packageDigest: digest(implementationPackage),
       changeDigest: evidence.changeDigest,
       changedFiles: evidence.changedFiles,
+      ...(verificationBaseline ? { verificationBaseline } : {}),
       completedAt: completedAt.toISOString(),
     },
     remainingActions: [
