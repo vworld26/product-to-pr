@@ -63,6 +63,7 @@ import {
   createManualImplementationRunner,
   preserveImplementationPackage,
 } from "./implementation.js";
+import { installDependencies, suggestedDependencyInstall } from "./dependencies.js";
 import { inspectRepository } from "./inspect.js";
 import {
   buildWithMeOfferExplanation,
@@ -142,7 +143,12 @@ import {
   type LoadedSession,
 } from "./session.js";
 import { withTransientRetries } from "./retry.js";
-import { discoverVerification, runVerificationCommands } from "./verify.js";
+import {
+  captureVerificationBaseline,
+  discoverVerification,
+  runVerificationCommands,
+  verificationBaselineMatches,
+} from "./verify.js";
 
 class PreflightStopped extends Error {}
 
@@ -443,7 +449,7 @@ try {
             return false;
           }
           console.log("\nWhich version of the GitHub repository should be used?");
-          console.log("[D] Default branch — start from the repository's main version.");
+          console.log("[D] Default branch — start from the repository's primary version.");
           console.log("[B] Another branch — include work already pushed by you or another agent.");
           let sourceChoice: RepositorySourceChoice | undefined;
           while (!sourceChoice) {
@@ -884,6 +890,9 @@ try {
           console.log("\nYour approved specification:\n");
           console.log(specification);
           console.log(
+            "\nProduct-to-PR saved local session material in .product-to-pr/. It will not stage these files for its own commits. If your repository does not ignore that folder, add `.product-to-pr/` to .gitignore before making unrelated manual commits.",
+          );
+          console.log(
             resumeSession && hasImplementationCheckpoint(resumeSession)
               ? "The previously saved local product changes remain unchanged."
               : "No product code was changed.",
@@ -950,6 +959,12 @@ try {
               }
               await assertImplementationProviderReady(implementationProvider);
 
+              // Capture the commands Product-to-PR is willing to run before an
+              // implementation provider can edit their configuration sources.
+              const verificationBaseline = await captureVerificationBaseline(
+                repositoryPath,
+              );
+
               writeStageIntroduction("branch");
               const branchName = await createImplementationBranch(
                 repositoryPath,
@@ -1007,6 +1022,7 @@ try {
                 resumeSession,
                 implementationProvider,
                 implementationPath,
+                verificationBaseline,
               );
               console.log(`Recovery checkpoint saved to ${resumeSession.sessionPath}`);
               writeStageCompletion("implement");
@@ -1058,7 +1074,46 @@ try {
             const verificationDiscovery = await discoverVerification(
               repositoryPath,
             );
-            const verificationCommands = verificationDiscovery.trustedCommands;
+            const verificationBaseline = resumeSession && hasImplementationCheckpoint(resumeSession)
+              ? resumeSession.implementation.verificationBaseline
+              : undefined;
+            let baselineMatches = verificationBaseline
+              ? await verificationBaselineMatches(repositoryPath, verificationBaseline)
+              : false;
+            const dependencyInstall = baselineMatches
+              ? await suggestedDependencyInstall(repositoryPath)
+              : undefined;
+            let dependencyInstallSkipped = false;
+            if (dependencyInstall) {
+              console.log(
+                `\nThis repository has Node dependencies that are not installed. ${dependencyInstall.command} is needed before its npm checks can run.`,
+              );
+              console.log(
+                "Installing dependencies can run repository-defined setup scripts. Review and approve it only if you trust this starting repository.",
+              );
+              let installChoice = "";
+              while (!['install', 'skip'].includes(installChoice)) {
+                installChoice = (await terminal.question(
+                  "Choose [I]nstall dependencies or [S]kip automated verification:\n> ",
+                )).trim().toLowerCase();
+                if (installChoice === "i") installChoice = "install";
+                if (installChoice === "s") installChoice = "skip";
+                if (!['install', 'skip'].includes(installChoice)) {
+                  console.log("Please enter install or skip.");
+                }
+              }
+              if (installChoice === "install") {
+                await installDependencies(repositoryPath, dependencyInstall);
+                baselineMatches = verificationBaseline
+                  ? await verificationBaselineMatches(repositoryPath, verificationBaseline)
+                  : false;
+              } else {
+                dependencyInstallSkipped = true;
+              }
+            }
+            const verificationCommands = baselineMatches && !dependencyInstallSkipped
+              ? verificationDiscovery.trustedCommands
+              : [];
             console.log(
               `\nVerification confidence: ${verificationDiscovery.confidence}`,
             );
@@ -1079,6 +1134,13 @@ try {
             verificationDiscovery.guidance.forEach((guidance) =>
               console.log(`- ${guidance}`)
             );
+            if (!baselineMatches) {
+              console.log(
+                verificationBaseline
+                  ? "- Verification configuration changed after implementation began. Product-to-PR will not run commands whose trust source changed; review the change and start a new implementation session if it is intentional."
+                  : "- This saved session has no pre-implementation verification baseline. Product-to-PR will not run verification automatically; start a new implementation session to establish one.",
+              );
+            }
             let verificationChoice: VerificationChoice = "verify";
             if (pausesBeforeRoutineWork(operatingMode)) {
               let guidedVerificationChoice: VerificationChoice | undefined;

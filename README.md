@@ -12,7 +12,18 @@ request while keeping you in control of every consequential step.**
 [Explore the practice repository](https://github.com/vworld26/product-to-pr-demo) ·
 [Review the demonstration pull request](https://github.com/vworld26/product-to-pr-demo/pull/2)
 
-## Try it
+## Start here
+
+Product-to-PR begins with two things: a repository and a plain-language feature
+idea. It checks the setup, reads the repository, restates the request in clear
+language, and creates a specification for you to approve before it changes
+code. It then stops at separate approvals for testing, committing, pushing,
+and opening a review-ready pull request. It never merges the pull request.
+
+### Use it on your computer
+
+Best when the code is already in a local folder or you want to use your
+existing development setup.
 
 ```bash
 git clone https://github.com/vworld26/product-to-pr
@@ -33,10 +44,18 @@ To work from a GitHub URL or create a pull request, you also need the GitHub CLI
 (`gh`) signed in. Implementation can use Codex, Claude Code, or a prompt you
 hand to another coding agent yourself.
 
-The Codespaces badge opens a browser-based development environment with Node,
-Git, and the GitHub CLI. You must still install and sign in to Codex before
-running Product-to-PR, and install and sign in to Claude Code if you select it
-for implementation.
+### Try it in your browser — GitHub Codespaces
+
+Best when the project is on GitHub and you do not want to install development
+tools locally. The Codespaces badge opens a browser-based Linux workspace with
+Node, Git, and the GitHub CLI, then installs Product-to-PR's dependencies. You
+must still install and sign in to your selected AI coding tool, such as Codex,
+before running Product-to-PR. Codespaces use is subject to your GitHub account's
+included allowance and any spending limits.
+
+Product-to-PR currently supports macOS and Linux environments. Windows has not
+yet been verified as a supported environment; Codespaces is one browser-based
+Linux alternative.
 
 ## Why this exists
 
@@ -226,8 +245,8 @@ npm run evaluate
 The canonical rubric evaluates beginner clarity, repository grounding,
 requirement discipline, observable acceptance criteria, verification evidence,
 scope control, reviewability, and recovery guidance. Product-to-PR shows the
-finding and evidence behind every score. These evaluations are advisory; they
-do not silently approve or reject work.
+finding and evidence behind every score. These heuristic evaluations are
+advisory; they do not silently approve or reject work.
 
 Quality events are recorded outside the repository in the operating system's
 application-data folder. The append-only record contains timestamps, hashed
@@ -270,6 +289,18 @@ commands are rejected. Product-to-PR shows high, medium, or low verification
 confidence based on the automated evidence available and calls out checks that
 still require manual review.
 
+Product-to-PR records the trusted verification setup before implementation
+begins. If an implementation changes `package.json`, `pyproject.toml`,
+`pytest.ini`, `AGENTS.md`, or `SKILL.md`, it will not automatically run newly
+discovered commands. This guards against configuration changes during a run; it
+does not make an untrusted starting repository safe. Review a repository before
+approving dependency installation or any command it defines.
+
+Approved specifications and recovery checkpoints are stored locally in
+`.product-to-pr/`. Product-to-PR never stages them for its own commits. Add
+`.product-to-pr/` to the repository's `.gitignore` if it is not already there,
+so an unrelated manual commit does not accidentally include local session data.
+
 ## Collaboration levels
 
 - **Guide me** — Introduce every stage, explain unfamiliar terms, and ask before implementation and verification.
@@ -298,7 +329,8 @@ separate maintainer decisions in both situations.
 2. Change one output section and add a test.
 3. Create a Git branch and commit the change.
 4. Open a pull request explaining what changed and why.
-5. Add repository inspection in version 2.
+5. Trace one feature from its approved specification through a review-ready pull
+   request.
 
 ## Product direction
 

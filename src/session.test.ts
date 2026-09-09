@@ -148,8 +148,22 @@ describe("resumable sessions", () => {
     await writeFile(critiquePath, "# Bound manual critique\n");
     await writeFile(join(path, "feature.ts"), "export const value = 1;\n");
 
-    session = await saveImplementationCheckpoint(session, "codex", packagePath);
+    const verificationBaseline = {
+      trustedCommands: [{
+        name: "test", command: "npm test", executable: "npm", args: ["test"],
+      }],
+      trustSourceDigest: "a".repeat(64),
+      trustSourcePaths: ["package.json"],
+    };
+    session = await saveImplementationCheckpoint(
+      session,
+      "codex",
+      packagePath,
+      verificationBaseline,
+    );
     expect(hasImplementationCheckpoint(session)).toBe(true);
+    if (!hasImplementationCheckpoint(session)) throw new Error("Expected checkpoint.");
+    expect(session.implementation.verificationBaseline).toEqual(verificationBaseline);
     expect((await loadResumableSession(session.sessionPath, path)).stage)
       .toBe("implementation-completed");
 

@@ -119,8 +119,14 @@ export async function openPullRequest(
   const branch = await git(repositoryPath, ["branch", "--show-current"]);
   requireImplementationBranch(branch);
   try {
+    const defaultBranch = await runner(repositoryPath, [
+      "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name",
+    ]);
+    if (!defaultBranch) {
+      throw new Error("GitHub did not return a default branch for this repository.");
+    }
     return await runner(repositoryPath, [
-      "pr", "create", "--base", "main", "--head", branch,
+      "pr", "create", "--base", defaultBranch, "--head", branch,
       "--title", plan.title, "--body", buildPullRequestBody(plan, review, handoff),
     ]);
   } catch (error) {
