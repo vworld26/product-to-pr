@@ -12,11 +12,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   MissingOutputDirectoryError,
+  formatCliHelp,
   parseCliArguments,
   writeOutputFile,
 } from "./output.js";
 
 describe("parseCliArguments", () => {
+  it("shows help without requiring a repository or feature request", () => {
+    expect(parseCliArguments(["--help"])).toMatchObject({ showHelp: true });
+    expect(formatCliHelp()).toContain("repository-folder-or-github-url");
+    expect(formatCliHelp()).toContain("does not merge pull requests");
+  });
   it("separates --output from the feature request", () => {
     expect(
       parseCliArguments([
