@@ -17,6 +17,8 @@ describe("journey guidance", () => {
     const opening = formatSessionOpening();
 
     expect(opening).toContain("Welcome to Product-to-PR");
+    expect(opening).toContain("review-ready pull request");
+    expect(opening).not.toContain("reviewed pull request");
     expect(opening).toContain("A local folder is used in place");
     expect(opening).toContain("GitHub URL requires your approval");
     expect(opening).toContain("Nothing will be merged automatically");

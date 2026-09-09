@@ -166,7 +166,7 @@ export const journeyStages: Record<JourneyStage, StageGuidance> = {
 export function formatSessionOpening(): string {
   return [
     "# Welcome to Product-to-PR",
-    "We’ll turn your feature idea into a reviewed pull request together. You do not need to know the technical process in advance.",
+    "We’ll turn your feature idea into a review-ready pull request together. You do not need to know the technical process in advance.",
     "Before the guided journey begins, Product-to-PR will connect to the project you selected. A local folder is used in place; a GitHub URL requires your approval before a real working copy is created on this computer.",
     "Nothing will be merged automatically.",
   ].join("\n");
