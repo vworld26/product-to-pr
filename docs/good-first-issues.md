@@ -1,7 +1,7 @@
-# Seed issues
+# Good first issues
 
-Draft issues to open once the repository is public, so a first-time visitor has
-somewhere obvious to start. Label each `good first issue`.
+Potential contributor issues. Confirm that an item is still open before filing
+or claiming it, and label active items `good first issue`.
 
 ## 1. Add a beginner-friendly `--help` command
 
@@ -10,7 +10,7 @@ request, the available modes and implementation providers, output files, and
 resume. It must exit without inspecting a repository or invoking an AI. Update
 argument parsing, the early CLI flow, and focused tests.
 
-## 2. Add a `--version` flag
+## 2. Add a `--version` flag (contribution in progress)
 
 `npm run dev -- --version` should print the version from `package.json` and exit
 without requiring a repository or feature request. Cover argument parsing,

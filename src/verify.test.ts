@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  captureVerificationBaseline,
   discoverVerification,
   discoverVerificationCommands,
   runVerificationCommands,
+  verificationBaselineMatches,
 } from "./verify.js";
 
 const directories: string[] = [];
@@ -124,6 +126,20 @@ describe("verification", () => {
       !command.command.includes("deploy-production")
     )).toBe(true);
     expect(discovery.confidence).toBe("high");
+  });
+
+  it("refuses a verification baseline when implementation changes a trust source", async () => {
+    const path = await fixture({ test: "node --test" });
+    await writeFile(join(path, "AGENTS.md"), "Product-to-PR verification: npm test\n");
+    const baseline = await captureVerificationBaseline(path);
+
+    await expect(verificationBaselineMatches(path, baseline)).resolves.toBe(true);
+    await writeFile(
+      join(path, "package.json"),
+      JSON.stringify({ scripts: { test: "node unsafe-change.js" } }),
+    );
+
+    await expect(verificationBaselineMatches(path, baseline)).resolves.toBe(false);
   });
 
   it("does not let a README grant command execution authority", async () => {

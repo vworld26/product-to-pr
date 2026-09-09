@@ -79,6 +79,7 @@ describe("publication", () => {
       let args: string[] = [];
       const url = await openPullRequest(repositoryPath, plan, review, handoff, async (_path, received) => {
         args = received;
+        if (received[0] === "repo") return "trunk";
         return "https://example.test/pull/1";
       });
       const body = buildPullRequestBody(plan, review, handoff);
@@ -89,6 +90,7 @@ describe("publication", () => {
       expect(url).toBe("https://example.test/pull/1");
       expect(args).toContain("create");
       expect(args).toContain("product-to-pr/example");
+      expect(args).toContain("trunk");
     } finally {
       await rm(repositoryPath, { recursive: true, force: true });
     }

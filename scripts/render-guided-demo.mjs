@@ -235,7 +235,7 @@ function renderSlide(slide, index) {
   <text x="248" y="174" class="window-title" fill="${colors.muted}">${escapeXml(slide.title)}</text>
   ${dots}
   ${body}
-  <text x="105" y="1043" class="footer" fill="${colors.muted}">Real Guide me run  •  pauses shortened  •  no merge</text>
+  <text x="105" y="1043" class="footer" fill="${colors.muted}">Recreated walkthrough based on a real Guide me run  •  pauses shortened  •  no merge</text>
 </svg>`;
 }
 
