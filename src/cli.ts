@@ -81,6 +81,7 @@ import {
 } from "./mode.js";
 import {
   MissingOutputDirectoryError,
+  formatCliHelp,
   parseCliArguments,
   writeOutputFile,
 } from "./output.js";
@@ -398,8 +399,13 @@ try {
     resumePath,
     forcePreflight,
     clearPreflightHistory,
+    showHelp,
   } =
     parseCliArguments(process.argv.slice(2));
+  if (showHelp) {
+    console.log(formatCliHelp());
+    process.exit(0);
+  }
   let featureRequest = requestedFeature;
 
   if (!repositoryInput) {

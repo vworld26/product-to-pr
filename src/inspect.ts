@@ -94,9 +94,6 @@ function explainMatch(path: string): string {
   if (/^(README|AGENTS)\.md$/i.test(filename) || path.includes("references/")) {
     return "Documents the current workflow and the behavior users should expect.";
   }
-  if (filename.includes("hub-template")) {
-    return "Builds the summary hub where completed deliverables are presented.";
-  }
   if (filename.includes("template")) {
     return "Generates one of the workflow deliverables that this feature may extend.";
   }
