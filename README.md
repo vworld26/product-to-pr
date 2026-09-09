@@ -1,6 +1,6 @@
 # Product-to-PR
 
-**Product-to-PR turns a plain-language feature request into a reviewed pull
+**Product-to-PR turns a plain-language feature request into a review-ready pull
 request while keeping you in control of every consequential step.**
 
 [![Product-to-PR in 80 seconds](https://vstewardgroup.com/video/product-to-pr-demo-poster.jpg)](https://vstewardgroup.com/products/product-to-pr/#see-it)
