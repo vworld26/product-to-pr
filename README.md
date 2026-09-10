@@ -11,7 +11,8 @@ request while keeping you in control of every consequential step.**
 [Watch the 80-second guided demo](https://vstewardgroup.com/products/product-to-pr/#see-it) ·
 [Explore the practice repository](https://github.com/vworld26/product-to-pr-demo) ·
 [Review the demonstration pull request](https://github.com/vworld26/product-to-pr-demo/pull/2) ·
-[Run a guided dogfood session](docs/dogfood-checklist.md)
+[Run a guided dogfood session](docs/dogfood-checklist.md) ·
+[See the proof of build](docs/proof-of-build.md)
 
 ## Start here
 
