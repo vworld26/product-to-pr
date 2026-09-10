@@ -45,6 +45,15 @@ To work from a GitHub URL or create a pull request, you also need the GitHub CLI
 (`gh`) signed in. Implementation can use Codex, Claude Code, or a prompt you
 hand to another coding agent yourself.
 
+To check the installed Product-to-PR version without starting a workflow:
+
+```bash
+npm run dev -- --version
+```
+
+The `--version` flag must be used alone, without a repository, feature request,
+or other options.
+
 ### Try it in your browser — GitHub Codespaces
 
 Best when the project is on GitHub and you do not want to install development

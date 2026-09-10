@@ -16,6 +16,7 @@ export type CliArguments = {
   resumePath?: string;
   forcePreflight: boolean;
   clearPreflightHistory: boolean;
+  showVersion?: true;
   showHelp?: true;
 };
 
@@ -43,6 +44,19 @@ export class MissingOutputDirectoryError extends Error {
 }
 
 export function parseCliArguments(args: string[]): CliArguments {
+  if (args.includes("--version")) {
+    if (args.length !== 1) {
+      throw new Error("The --version option must be used alone.");
+    }
+    return {
+      repositoryPath: "",
+      featureRequest: "",
+      forcePreflight: false,
+      clearPreflightHistory: false,
+      showVersion: true,
+    };
+  }
+
   if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
     return {
       repositoryPath: "", featureRequest: "", forcePreflight: false,

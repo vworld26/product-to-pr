@@ -6,8 +6,11 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,6 +21,74 @@ import {
 } from "./output.js";
 
 describe("parseCliArguments", () => {
+  const mixedVersionArguments = [
+    [".", "Add export", "--version"],
+    ["--version", ".", "Add export"],
+    ["--version", "--version"],
+    ["--help", "--version"],
+    ["--version", "-h"],
+    ["--version", "--provider", "manual"],
+  ];
+
+  it.each(mixedVersionArguments.map((args) => [args]))(
+    "rejects --version combined with other arguments: %j",
+    (args) => {
+      expect(() => parseCliArguments(args)).toThrow(
+        "The --version option must be used alone.",
+      );
+    },
+  );
+
+  it("rejects mixed version arguments before workflow startup and preserves help", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "product-to-pr-options-"));
+    const command = [
+      "--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href,
+      fileURLToPath(new URL("./cli.ts", import.meta.url)),
+    ];
+    try {
+      for (const args of mixedVersionArguments) {
+        const result = spawnSync(process.execPath, [...command, ...args], {
+          cwd: directory, encoding: "utf8", env: { ...process.env, PATH: "" },
+        });
+        expect(result.error).toBeUndefined();
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toContain("The --version option must be used alone.");
+      }
+      for (const flag of ["--help", "-h"]) {
+        const result = spawnSync(process.execPath, [...command, flag], {
+          cwd: directory, encoding: "utf8", env: { ...process.env, PATH: "" },
+        });
+        expect(result.status).toBe(0);
+        expect(result.stdout.trim()).toBe(formatCliHelp());
+        expect(result.stderr).toBe("");
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("recognizes --version without a repository or feature request", () => {
+    expect(parseCliArguments(["--version"]))
+      .toMatchObject({ showVersion: true, repositoryPath: "", featureRequest: "" });
+  });
+
+  it("prints the package version before repository or provider startup", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "product-to-pr-version-"));
+    const metadata = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    );
+    try {
+      const output = execFileSync(process.execPath, [
+        "--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href,
+        fileURLToPath(new URL("./cli.ts", import.meta.url)), "--version",
+      ], { cwd: directory, encoding: "utf8", env: { ...process.env, PATH: "" } });
+      expect(output.trim()).toBe(metadata.version);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("shows help without requiring a repository or feature request", () => {
     expect(parseCliArguments(["--help"])).toMatchObject({ showHelp: true });
     expect(formatCliHelp()).toContain("repository-folder-or-github-url");
