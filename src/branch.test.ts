@@ -1,16 +1,14 @@
-import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
+import { runCommand } from "./command.js";
 
 import { createImplementationBranch } from "./branch.js";
 
-const execFileAsync = promisify(execFile);
-
 async function git(repositoryPath: string, args: string[]): Promise<void> {
-  await execFileAsync("git", ["-C", repositoryPath, ...args]);
+  await runCommand("git", ["-C", repositoryPath, ...args]);
 }
 
 async function createRepository(): Promise<string> {

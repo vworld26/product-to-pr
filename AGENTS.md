@@ -75,3 +75,18 @@ mode or broaden a product user's authority.
 Use Conventional Commits for every commit. Choose the type that best describes
 the change, such as `feat:`, `fix:`, `test:`, `docs:`, `refactor:`, or `chore:`.
 Keep the subject concise, imperative, and focused on the observable change.
+
+## Child processes and paths
+
+These rules keep Product-to-PR working on Windows as well as macOS and Linux.
+
+- Start child processes only through `runCommand` or `spawnCommand` in
+  `src/command.ts`. Never import `node:child_process` anywhere else; the test
+  in `src/command-guard.test.ts` fails if you do.
+- Pass any repository-relative path that ends up in an artifact, a prompt, or
+  terminal output through `toPosixPath` from `src/paths.ts`.
+
+Why: on Windows, npm-installed tools such as `npm`, `codex`, and `claude` are
+`.cmd` shims that Node cannot start directly, and `path.relative()` returns
+backslashes there. `src/command.ts` and `src/paths.ts` are the one place each of
+those differences is handled.

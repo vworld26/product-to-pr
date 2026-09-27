@@ -1,14 +1,12 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
+import { runCommand } from "./command.js";
 
 import type { ProductPlan } from "./plan.js";
 import { createLocalReview, formatLocalReview } from "./review.js";
-
-const execFileAsync = promisify(execFile);
 
 const plan = {
   acceptanceCriteria: ["A user can see the result."],
@@ -18,12 +16,12 @@ describe("local review", () => {
   it("summarizes changes, evidence, and recovery guidance", async () => {
     const repositoryPath = await mkdtemp(join(tmpdir(), "product-to-pr-review-"));
     try {
-      await execFileAsync("git", ["-C", repositoryPath, "init"]);
-      await execFileAsync("git", ["-C", repositoryPath, "config", "user.name", "Test"]);
-      await execFileAsync("git", ["-C", repositoryPath, "config", "user.email", "test@example.test"]);
+      await runCommand("git", ["-C", repositoryPath, "init"]);
+      await runCommand("git", ["-C", repositoryPath, "config", "user.name", "Test"]);
+      await runCommand("git", ["-C", repositoryPath, "config", "user.email", "test@example.test"]);
       await writeFile(join(repositoryPath, "README.md"), "before\n");
-      await execFileAsync("git", ["-C", repositoryPath, "add", "README.md"]);
-      await execFileAsync("git", ["-C", repositoryPath, "commit", "-m", "Initial"]);
+      await runCommand("git", ["-C", repositoryPath, "add", "README.md"]);
+      await runCommand("git", ["-C", repositoryPath, "commit", "-m", "Initial"]);
       await writeFile(join(repositoryPath, "README.md"), "after\n");
       await writeFile(join(repositoryPath, "feature.ts"), "export {};\n");
       let reviewPrompt = "";

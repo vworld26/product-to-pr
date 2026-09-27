@@ -1,13 +1,11 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
-import { promisify } from "node:util";
 
+import { runCommand } from "./command.js";
 import type { ProductPlan } from "./plan.js";
 import type { ImplementationRunner } from "./execute.js";
-
-const execFileAsync = promisify(execFile);
+import { toPosixPath } from "./paths.js";
 
 function slugify(value: string): string {
   return (
@@ -27,11 +25,7 @@ async function readGitValue(
   repositoryPath: string,
   args: string[],
 ): Promise<string> {
-  const { stdout } = await execFileAsync(
-    "git",
-    ["-C", repositoryPath, ...args],
-    { encoding: "utf8" },
-  );
+  const { stdout } = await runCommand("git", ["-C", repositoryPath, ...args]);
   return stdout.trim();
 }
 
@@ -58,7 +52,7 @@ function formatImplementationPackage(
   return [
     `# Implementation package: ${plan.title}`,
     "## Approved scope",
-    `- Specification: ${relative(repositoryPath, specificationPath)}`,
+    `- Specification: ${toPosixPath(relative(repositoryPath, specificationPath))}`,
     `- Specification SHA-256: ${specificationDigest}`,
     `- Branch: ${branchName}`,
     `- Starting commit: ${commit}`,

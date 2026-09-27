@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { toPosixPath } from "./paths.js";
 import {
   parseBuildChoice,
   parseCommitChoice,
@@ -66,7 +67,7 @@ describe("preserveApprovedSpecification", () => {
         new Date("2026-07-27T12:00:00.000Z"),
       );
 
-      expect(path).toContain(".product-to-pr/specifications/");
+      expect(toPosixPath(path)).toContain(".product-to-pr/specifications/");
       expect(await readFile(path, "utf8")).toBe("# Approved specification");
     } finally {
       await rm(repositoryPath, { recursive: true, force: true });

@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { promisify } from "node:util";
+import { delimiter, join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+import { runCommand } from "./command.js";
 
 import {
   buildImplementationCommand,
@@ -14,10 +14,8 @@ import {
   runCodexImplementation,
 } from "./execute.js";
 
-const execFileAsync = promisify(execFile);
-
 async function git(repositoryPath: string, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync(
+  const { stdout } = await runCommand(
     "git",
     ["-C", repositoryPath, ...args],
     { encoding: "utf8" },
@@ -165,4 +163,48 @@ describe("implementApprovedPlan", () => {
       await rm(fixture.repositoryPath, { recursive: true, force: true });
     }
   });
+});
+
+describe.runIf(process.platform === "win32")("Windows implementation timeouts", () => {
+  it("terminates the tool behind the codex shim when the implementation times out", async () => {
+    const root = await mkdtemp(join(tmpdir(), "product-to-pr-execute-timeout-"));
+    const shimDirectory = join(root, "shim dir");
+    const pidFile = join(root, "grandchild.pid");
+    await mkdir(shimDirectory);
+    // Stands in for the Codex CLI: a cmd shim whose Node grandchild records
+    // its pid and then idles, ignoring the implementation prompt on stdin.
+    await writeFile(
+      join(shimDirectory, "codex.cmd"),
+      "@node -e \"require('fs').writeFileSync(process.env.PRODUCT_TO_PR_TEST_PID_FILE, String(process.pid)); setInterval(() => {}, 1000)\"\r\n",
+    );
+    const previous = { PATH: process.env.PATH, PID_FILE: process.env.PRODUCT_TO_PR_TEST_PID_FILE };
+    process.env.PATH = `${shimDirectory}${delimiter}${previous.PATH ?? ""}`;
+    process.env.PRODUCT_TO_PR_TEST_PID_FILE = pidFile;
+    try {
+      await expect(
+        runCodexImplementation(root, "Implement the approved specification.", {
+          timeoutMilliseconds: 3_000,
+        }),
+      ).rejects.toThrow("Codex implementation timed out after 3 seconds.");
+
+      const pid = Number(await readFile(pidFile, "utf8"));
+      expect(pid).toBeGreaterThan(0);
+      expect(pid).not.toBe(process.pid);
+      let status = "alive";
+      try {
+        process.kill(pid, 0);
+      } catch (error) {
+        status = (error as NodeJS.ErrnoException).code ?? "unknown";
+      }
+      expect(status).toBe("ESRCH");
+    } finally {
+      process.env.PATH = previous.PATH;
+      if (previous.PID_FILE === undefined) {
+        delete process.env.PRODUCT_TO_PR_TEST_PID_FILE;
+      } else {
+        process.env.PRODUCT_TO_PR_TEST_PID_FILE = previous.PID_FILE;
+      }
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 15_000);
 });

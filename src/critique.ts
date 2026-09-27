@@ -1,8 +1,13 @@
-import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  formatTimeout,
+  killTree,
+  spawnCommand,
+  type TimeoutOptions,
+} from "./command.js";
 import type { EvaluationReport } from "./evaluation.js";
 import type { ProductPlan } from "./plan.js";
 import type {
@@ -253,21 +258,31 @@ export function parseCritiqueResponse(
   };
 }
 
+const critiqueTimeoutMilliseconds = 120_000;
+
 async function executeCritiqueCommand(
   command: CritiqueCommand,
   prompt: string,
+  timeoutMilliseconds: number,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command.command, command.args, {
+    const child = spawnCommand(command.command, command.args, {
       ...(command.cwd ? { cwd: command.cwd } : {}),
       stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";
     let errors = "";
+    let timedOut = false;
+    const timeoutError = new Error(
+      `${command.label} critique timed out after ${formatTimeout(timeoutMilliseconds)}.`,
+    );
     const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-      reject(new Error(`${command.label} critique timed out after 2 minutes.`));
-    }, 120_000);
+      timedOut = true;
+      void killTree(child).then(
+        () => reject(timeoutError),
+        (error) => reject(error),
+      );
+    }, timeoutMilliseconds);
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => { output += chunk; });
@@ -275,9 +290,13 @@ async function executeCritiqueCommand(
     child.on("error", reject);
     child.on("close", (code) => {
       clearTimeout(timeout);
-      code === 0
-        ? resolve(output.trim())
-        : reject(new Error(errors.trim() || `${command.label} exited with status ${code}.`));
+      if (timedOut) {
+        return;
+      } else if (code === 0) {
+        resolve(output.trim());
+      } else {
+        reject(new Error(errors.trim() || `${command.label} exited with status ${code}.`));
+      }
     });
     child.stdin.end(prompt);
   });
@@ -287,6 +306,7 @@ export async function runCritiqueWithProvider(
   provider: AutomatedImplementationProvider,
   artifact: CritiqueArtifact,
   prompt: string,
+  options: TimeoutOptions = {},
 ): Promise<CritiqueReport> {
   const directory = await mkdtemp(join(tmpdir(), "product-to-pr-critique-"));
   try {
@@ -294,7 +314,11 @@ export async function runCritiqueWithProvider(
     if (provider === "codex") {
       await writeFile(join(directory, "schema.json"), JSON.stringify(critiqueSchema));
     }
-    const stdout = await executeCritiqueCommand(command, prompt);
+    const stdout = await executeCritiqueCommand(
+      command,
+      prompt,
+      options.timeoutMilliseconds ?? critiqueTimeoutMilliseconds,
+    );
     const content = command.outputPath
       ? await readFile(command.outputPath, "utf8")
       : stdout;

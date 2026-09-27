@@ -1,12 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
+import { runCommand } from "./command.js";
 import type {
   AutomatedImplementationProvider,
   ImplementationProvider,
 } from "./provider.js";
-
-const execFileAsync = promisify(execFile);
 
 export const readinessStatuses = [
   "Passed",
@@ -39,13 +35,8 @@ export type ReadinessProbeRunner = (
   request: ProbeRequest,
 ) => Promise<ProbeResponse>;
 
-const runReadOnlyProbe: ReadinessProbeRunner = async ({ command, args, cwd }) => {
-  const result = await execFileAsync(command, [...args], {
-    cwd,
-    encoding: "utf8",
-  });
-  return { stdout: result.stdout, stderr: result.stderr };
-};
+const runReadOnlyProbe: ReadinessProbeRunner = ({ command, args, cwd }) =>
+  runCommand(command, args, { cwd });
 
 export type ManualAiReadiness = {
   name: string;
@@ -122,6 +113,11 @@ function installAction(tool: "Git" | "GitHub CLI" | "Codex" | "Claude Code", pla
     const command = tool === "Git" ? "xcode-select --install" : tool === "GitHub CLI"
       ? "brew install gh" : tool === "Codex" ? "npm install -g @openai/codex" : "Follow Claude Code's official macOS installation guide.";
     return `On macOS, install ${tool} (${command}), then rerun preflight. Product-to-PR will not install it for you.`;
+  }
+  if (platform === "win32") {
+    const command = tool === "Git" ? "winget install Git.Git" : tool === "GitHub CLI"
+      ? "winget install GitHub.cli" : tool === "Codex" ? "npm install -g @openai/codex" : "Follow Claude Code's official Windows installation guide.";
+    return `On Windows, install ${tool} (${command}) from PowerShell or Windows Terminal, then rerun preflight. Product-to-PR will not install it for you.`;
   }
   return `Install ${tool} using its official instructions for your operating system, then rerun preflight. Product-to-PR will not install it for you.`;
 }

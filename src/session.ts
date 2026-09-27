@@ -1,9 +1,8 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { promisify } from "node:util";
 
+import { runCommand } from "./command.js";
 import type { CritiqueFlowResult } from "./critique-flow.js";
 import type { EvaluationReport } from "./evaluation.js";
 import type { OperatingMode } from "./mode.js";
@@ -12,8 +11,6 @@ import type { ImplementationProvider } from "./provider.js";
 import type { PreparedRepository } from "./repository.js";
 import { readLocalChangeEvidence, type LocalReview } from "./review.js";
 import type { VerificationBaseline } from "./verify.js";
-
-const execFileAsync = promisify(execFile);
 
 export type SessionStage =
   | "specification-approved"
@@ -91,12 +88,15 @@ function slugify(value: string): string {
 }
 
 async function git(repositoryPath: string, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync(
-    "git",
-    ["-C", repositoryPath, ...args],
-    { encoding: "utf8" },
-  );
+  const { stdout } = await runCommand("git", ["-C", repositoryPath, ...args]);
   return stdout.trim();
+}
+
+// Windows paths are case-insensitive, so `c:\work` and `C:\Work` name the same
+// repository even though the strings differ.
+function samePath(left: string, right: string): boolean {
+  const [a, b] = [resolve(left), resolve(right)];
+  return process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
 async function readArtifact(path: string, label: string): Promise<string> {
@@ -313,7 +313,7 @@ export async function loadResumableSession(
   if (!isSession(session)) {
     throw new Error("Resume session is malformed or uses an unsupported version.");
   }
-  if (resolve(repositoryPath) !== resolve(session.repository.path)) {
+  if (!samePath(repositoryPath, session.repository.path)) {
     throw new Error(
       `Resume session belongs to ${session.repository.path}, not ${resolve(repositoryPath)}.`,
     );

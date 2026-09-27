@@ -1,7 +1,9 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
+
+import { runCommand, type CommandFailure } from "./command.js";
+import { toPosixPath } from "./paths.js";
 
 export type VerificationCommand = {
   name: string;
@@ -43,7 +45,7 @@ async function findVerificationDocuments(
     if (entry.isDirectory() && !ignoredDirectories.has(entry.name)) {
       paths.push(...await findVerificationDocuments(repositoryPath, path));
     } else if (["AGENTS.md", "SKILL.md", "README.md"].includes(entry.name)) {
-      paths.push(relative(repositoryPath, path));
+      paths.push(toPosixPath(relative(repositoryPath, path)));
     }
   }
   return paths;
@@ -60,13 +62,19 @@ async function findPossibleCheckScripts(
     if (entry.isDirectory() && !ignoredDirectories.has(entry.name)) {
       commands.push(...await findPossibleCheckScripts(repositoryPath, path));
     } else if (/^(?:check|test|verify)[\w-]*\.(?:js|py|sh)$/.test(entry.name)) {
-      const repositoryPathname = relative(repositoryPath, path);
+      const repositoryPathname = toPosixPath(relative(repositoryPath, path));
       const executable = entry.name.endsWith(".py")
         ? "python" : entry.name.endsWith(".js") ? "node" : "sh";
       commands.push(`${executable} ${repositoryPathname}`);
     }
   }
   return commands;
+}
+
+// Windows installs a `python3` alias that only opens the Microsoft Store, so a
+// declared `python3 -m pytest` must run through `python` there.
+function pythonExecutable(requested: "python" | "python3"): string {
+  return process.platform === "win32" ? "python" : requested;
 }
 
 function commandFromText(command: string): VerificationCommand | undefined {
@@ -82,7 +90,7 @@ function commandFromText(command: string): VerificationCommand | undefined {
     };
   }
   if (value === "python -m pytest" || value === "python3 -m pytest") {
-    const executable = value.startsWith("python3") ? "python3" : "python";
+    const executable = pythonExecutable(value.startsWith("python3") ? "python3" : "python");
     return { name: "test", command: value, executable, args: ["-m", "pytest"] };
   }
   return undefined;
@@ -261,25 +269,29 @@ export async function discoverVerificationCommands(
   return (await discoverVerification(repositoryPath)).trustedCommands;
 }
 
-function runCommand(
+async function executeVerification(
   repositoryPath: string,
   command: VerificationCommand,
 ): Promise<VerificationResult> {
-  return new Promise((resolve) => {
-    const child = execFile(
-      command.executable,
-      command.args,
-      { cwd: repositoryPath, encoding: "utf8", timeout: 300_000 },
-      (error, stdout, stderr) => {
-        resolve({
-          ...command,
-          passed: !error,
-          output: `${stdout}${stderr}`.trim() || (error?.message ?? "No output."),
-        });
-      },
-    );
-    child.stdin?.end();
-  });
+  try {
+    const { stdout, stderr } = await runCommand(command.executable, command.args, {
+      cwd: repositoryPath,
+      timeout: 300_000,
+    });
+    return {
+      ...command,
+      passed: true,
+      output: `${stdout}${stderr}`.trim() || "No output.",
+    };
+  } catch (error) {
+    const failure = error as CommandFailure;
+    return {
+      ...command,
+      passed: false,
+      output: `${failure.stdout ?? ""}${failure.stderr ?? ""}`.trim() ||
+        (failure.message ?? "No output."),
+    };
+  }
 }
 
 export async function runVerificationCommands(
@@ -288,7 +300,7 @@ export async function runVerificationCommands(
 ): Promise<VerificationResult[]> {
   const results: VerificationResult[] = [];
   for (const command of commands) {
-    results.push(await runCommand(repositoryPath, command));
+    results.push(await executeVerification(repositoryPath, command));
   }
   return results;
 }

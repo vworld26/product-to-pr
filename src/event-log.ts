@@ -1,5 +1,5 @@
 import { appendFile, chmod, mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, posix, win32 } from "node:path";
 
 import type { CritiqueArtifact, CritiqueReport } from "./critique.js";
 import type { EvaluationReport } from "./evaluation.js";
@@ -50,7 +50,8 @@ export type QualityEvent = QualityEventBase & ({
 export function qualityEventLogPath(
   options: HistoryLocationOptions = {},
 ): string {
-  return join(dirname(readinessHistoryPath(options)), "quality-events.jsonl");
+  const paths = (options.platform ?? process.platform) === "win32" ? win32 : posix;
+  return paths.join(paths.dirname(readinessHistoryPath(options)), "quality-events.jsonl");
 }
 
 async function appendQualityEvent(

@@ -64,9 +64,10 @@ must still install and sign in to your selected AI coding tool, such as Codex,
 before running Product-to-PR. Codespaces use is subject to your GitHub account's
 included allowance and any spending limits.
 
-Product-to-PR currently supports macOS and Linux environments. Windows has not
-yet been verified as a supported environment; Codespaces is one browser-based
-Linux alternative.
+Product-to-PR supports macOS and Linux, and its tests also run on Windows in
+continuous integration. On Windows, run it from PowerShell or Windows Terminal:
+Git Bash does not present a terminal to Node, so the guided prompts cannot
+appear there. Codespaces is a browser-based Linux alternative.
 
 ## Why this exists
 

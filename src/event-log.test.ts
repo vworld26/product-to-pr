@@ -79,7 +79,9 @@ describe("privacy-conscious quality event log", () => {
         { eventType: "retry", outcome: "retrying", operation: "independent-critique", attempt: 1 },
         { eventType: "risk-policy", outcome: "elevated", phase: "implementation" },
       ]);
-      expect((await stat(path)).mode & 0o777).toBe(0o600);
+      if (process.platform !== "win32") {
+        expect((await stat(path)).mode & 0o777).toBe(0o600);
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

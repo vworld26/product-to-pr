@@ -6,19 +6,35 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { runCommand, type CommandFailure } from "./command.js";
 import {
   MissingOutputDirectoryError,
   formatCliHelp,
   parseCliArguments,
   writeOutputFile,
 } from "./output.js";
+
+async function runNode(
+  args: string[],
+  cwd: string,
+): Promise<{ status: number; stdout: string; stderr: string }> {
+  try {
+    const { stdout, stderr } = await runCommand(process.execPath, args, {
+      cwd, env: { ...process.env, PATH: "" },
+    });
+    return { status: 0, stdout, stderr };
+  } catch (error) {
+    const failure = error as CommandFailure;
+    if (typeof failure.code !== "number") throw error;
+    return { status: failure.code, stdout: failure.stdout ?? "", stderr: failure.stderr ?? "" };
+  }
+}
 
 describe("parseCliArguments", () => {
   const mixedVersionArguments = [
@@ -47,18 +63,13 @@ describe("parseCliArguments", () => {
     ];
     try {
       for (const args of mixedVersionArguments) {
-        const result = spawnSync(process.execPath, [...command, ...args], {
-          cwd: directory, encoding: "utf8", env: { ...process.env, PATH: "" },
-        });
-        expect(result.error).toBeUndefined();
+        const result = await runNode([...command, ...args], directory);
         expect(result.status).toBe(1);
         expect(result.stdout).toBe("");
         expect(result.stderr).toContain("The --version option must be used alone.");
       }
       for (const flag of ["--help", "-h"]) {
-        const result = spawnSync(process.execPath, [...command, flag], {
-          cwd: directory, encoding: "utf8", env: { ...process.env, PATH: "" },
-        });
+        const result = await runNode([...command, flag], directory);
         expect(result.status).toBe(0);
         expect(result.stdout.trim()).toBe(formatCliHelp());
         expect(result.stderr).toBe("");
@@ -79,10 +90,10 @@ describe("parseCliArguments", () => {
       await readFile(new URL("../package.json", import.meta.url), "utf8"),
     );
     try {
-      const output = execFileSync(process.execPath, [
+      const { stdout: output } = await runNode([
         "--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href,
         fileURLToPath(new URL("./cli.ts", import.meta.url)), "--version",
-      ], { cwd: directory, encoding: "utf8", env: { ...process.env, PATH: "" } });
+      ], directory);
       expect(output.trim()).toBe(metadata.version);
     } finally {
       await rm(directory, { recursive: true, force: true });

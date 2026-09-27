@@ -1,10 +1,8 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
+import { runCommand } from "./command.js";
 
 export type GitHubRepository = {
   nameWithOwner: string;
@@ -58,10 +56,9 @@ export type RepositoryCloner = (
 ) => Promise<void>;
 
 const readGitHubRepository: RepositoryMetadataReader = async (nameWithOwner) => {
-  const { stdout } = await execFileAsync(
+  const { stdout } = await runCommand(
     "gh",
     ["repo", "view", nameWithOwner, "--json", "nameWithOwner,isPrivate,url"],
-    { encoding: "utf8" },
   );
   return JSON.parse(stdout) as GitHubRepository;
 };
@@ -74,10 +71,9 @@ const cloneGitHubRepository: RepositoryCloner = async (
   const cloneOptions = sourceRef
     ? ["--branch", sourceRef, "--depth=1"]
     : ["--depth=1"];
-  await execFileAsync(
+  await runCommand(
     "gh",
     ["repo", "clone", nameWithOwner, destination, "--", ...cloneOptions],
-    { encoding: "utf8" },
   );
 };
 

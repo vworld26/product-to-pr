@@ -1,10 +1,10 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
+
+import { runCommand } from "./command.js";
 
 import type { ProductPlan } from "./plan.js";
 import { evaluateImplementation } from "./evaluation.js";
@@ -20,18 +20,17 @@ import {
   saveVerificationCheckpoint,
 } from "./session.js";
 
-const execFileAsync = promisify(execFile);
 const repositories: string[] = [];
 
 async function repository(): Promise<string> {
   const path = await mkdtemp(join(tmpdir(), "product-to-pr-session-"));
   repositories.push(path);
-  await execFileAsync("git", ["-C", path, "init"]);
-  await execFileAsync("git", ["-C", path, "config", "user.name", "Test"]);
-  await execFileAsync("git", ["-C", path, "config", "user.email", "test@example.test"]);
+  await runCommand("git", ["-C", path, "init"]);
+  await runCommand("git", ["-C", path, "config", "user.name", "Test"]);
+  await runCommand("git", ["-C", path, "config", "user.email", "test@example.test"]);
   await writeFile(join(path, "README.md"), "initial\n");
-  await execFileAsync("git", ["-C", path, "add", "README.md"]);
-  await execFileAsync("git", ["-C", path, "commit", "-m", "Initial"]);
+  await runCommand("git", ["-C", path, "add", "README.md"]);
+  await runCommand("git", ["-C", path, "commit", "-m", "Initial"]);
   return path;
 }
 
@@ -80,8 +79,32 @@ describe("resumable sessions", () => {
     expect(updated.remainingActions[0]).toContain("build-with-me");
     expect(JSON.parse(await readFile(saved.sessionPath, "utf8")).operatingMode)
       .toBe("build-with-me");
-    expect((await stat(saved.sessionPath)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect((await stat(saved.sessionPath)).mode & 0o777).toBe(0o600);
+    }
   });
+
+  it.runIf(process.platform === "win32")(
+    "resumes when only the drive-letter case of the repository path differs",
+    async () => {
+      const path = await repository();
+      const specificationPath = join(path, "approved.md");
+      await writeFile(specificationPath, "# Approved\n");
+      const saved = await saveResumableSession(
+        { repositoryPath: path, source: "local" },
+        "Add resumable plans",
+        plan,
+        specificationPath,
+        "# Approved\n",
+      );
+      const differentCase = path.replace(/^[a-z]:/i, (drive) =>
+        drive === drive.toLowerCase() ? drive.toUpperCase() : drive.toLowerCase()
+      );
+
+      const loaded = await loadResumableSession(saved.sessionPath, differentCase);
+      expect(loaded.stage).toBe("specification-approved");
+    },
+  );
 
   it("explains missing and malformed sessions", async () => {
     const path = await repository();
@@ -107,8 +130,8 @@ describe("resumable sessions", () => {
 
     await writeFile(specificationPath, "# Approved\n");
     await writeFile(join(path, "README.md"), "changed\n");
-    await execFileAsync("git", ["-C", path, "add", "README.md"]);
-    await execFileAsync("git", ["-C", path, "commit", "-m", "Changed"]);
+    await runCommand("git", ["-C", path, "add", "README.md"]);
+    await runCommand("git", ["-C", path, "commit", "-m", "Changed"]);
     await expect(loadResumableSession(first.sessionPath, path))
       .rejects.toThrow("branch or commit changed");
   });
@@ -143,7 +166,7 @@ describe("resumable sessions", () => {
       { repositoryPath: path, source: "local" }, "Feature", plan,
       specificationPath, "# Approved\n",
     );
-    await execFileAsync("git", ["-C", path, "switch", "-c", "product-to-pr/feature"]);
+    await runCommand("git", ["-C", path, "switch", "-c", "product-to-pr/feature"]);
     await writeFile(packagePath, "# Bound implementation package\n");
     await writeFile(critiquePath, "# Bound manual critique\n");
     await writeFile(join(path, "feature.ts"), "export const value = 1;\n");

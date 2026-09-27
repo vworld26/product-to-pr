@@ -1,21 +1,20 @@
-import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
+import { runCommand } from "./command.js";
 
 import {
   createManualImplementationRunner,
   preserveImplementationPackage,
   preserveManualImplementationPrompt,
 } from "./implementation.js";
+import { toPosixPath } from "./paths.js";
 import type { ProductPlan } from "./plan.js";
 
-const execFileAsync = promisify(execFile);
-
 async function git(repositoryPath: string, args: string[]): Promise<void> {
-  await execFileAsync("git", ["-C", repositoryPath, ...args]);
+  await runCommand("git", ["-C", repositoryPath, ...args]);
 }
 
 async function createRepository(): Promise<string> {
@@ -95,7 +94,7 @@ describe("preserveImplementationPackage", () => {
       );
       const content = await readFile(path, "utf8");
 
-      expect(path).toContain(".product-to-pr/implementations/");
+      expect(toPosixPath(path)).toContain(".product-to-pr/implementations/");
       expect(content).toContain("- Branch: product-to-pr/example");
       expect(content).toMatch(/- Starting commit: [a-f0-9]{40}/);
       expect(content).toContain(

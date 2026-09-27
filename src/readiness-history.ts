@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve, win32 } from "node:path";
+import { dirname, join, posix, resolve, win32 } from "node:path";
 
 import type { ImplementationProvider } from "./provider.js";
 
@@ -86,7 +86,7 @@ export function readinessHistoryPath(
   const environment = options.environment ?? process.env;
   const home = options.homeDirectory ?? homedir();
   if (platform === "darwin") {
-    return join(home, "Library", "Application Support", "Product-to-PR", "readiness.json");
+    return posix.join(home, "Library", "Application Support", "Product-to-PR", "readiness.json");
   }
   if (platform === "win32") {
     return win32.join(
@@ -95,7 +95,7 @@ export function readinessHistoryPath(
       "readiness.json",
     );
   }
-  return join(environment.XDG_STATE_HOME ?? join(home, ".local", "state"), "product-to-pr", "readiness.json");
+  return posix.join(environment.XDG_STATE_HOME ?? posix.join(home, ".local", "state"), "product-to-pr", "readiness.json");
 }
 
 export async function loadReadinessHistory(

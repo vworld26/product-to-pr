@@ -1,8 +1,13 @@
-import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  formatTimeout,
+  killTree,
+  spawnCommand,
+  type TimeoutOptions,
+} from "./command.js";
 import type { ProductReasoning, RepositoryOverview } from "./plan.js";
 
 const reasoningSchema = {
@@ -113,6 +118,7 @@ export async function reasonAboutFeature(
   featureRequest: string,
   repositoryOverview: RepositoryOverview,
   answers: string[] = [],
+  options: TimeoutOptions = {},
 ): Promise<ProductReasoning> {
   const temporaryDirectory = await mkdtemp(
     join(tmpdir(), "product-to-pr-reasoning-"),
@@ -123,8 +129,8 @@ export async function reasonAboutFeature(
   try {
     await writeFile(schemaPath, JSON.stringify(reasoningSchema), "utf8");
     await new Promise<void>((resolve, reject) => {
-      const timeoutMilliseconds = 120_000;
-      const child = spawn(
+      const timeoutMilliseconds = options.timeoutMilliseconds ?? 120_000;
+      const child = spawnCommand(
         "codex",
         [
           "exec",
@@ -146,12 +152,15 @@ export async function reasonAboutFeature(
         },
       );
       let errorOutput = "";
+      let timedOut = false;
+      const timeoutError = new Error(
+        `Product reasoning timed out after ${formatTimeout(timeoutMilliseconds)}. Try again or use a shorter feature request.`,
+      );
       const timeout = setTimeout(() => {
-        child.kill("SIGTERM");
-        reject(
-          new Error(
-            "Product reasoning timed out after 2 minutes. Try again or use a shorter feature request.",
-          ),
+        timedOut = true;
+        void killTree(child).then(
+          () => reject(timeoutError),
+          (error) => reject(error),
         );
       }, timeoutMilliseconds);
 
@@ -162,7 +171,9 @@ export async function reasonAboutFeature(
       child.on("error", reject);
       child.on("close", (code) => {
         clearTimeout(timeout);
-        if (code === 0) {
+        if (timedOut) {
+          return;
+        } else if (code === 0) {
           resolve();
         } else {
           reject(

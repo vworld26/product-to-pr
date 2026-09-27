@@ -1,6 +1,8 @@
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
+import { toPosixPath } from "./paths.js";
+
 export type RepositoryInstruction = {
   path: string;
   scope: string;
@@ -46,7 +48,7 @@ async function findInstructionPaths(
         );
       }
     } else if (entry.name === "AGENTS.md") {
-      instructionPaths.push(relative(repositoryPath, entryPath));
+      instructionPaths.push(toPosixPath(relative(repositoryPath, entryPath)));
     }
   }
 

@@ -156,6 +156,19 @@ describe("guided preflight", () => {
     expect(report.results.find((item) => item.id === "provider-codex")?.nextAction).toContain("npm install -g @openai/codex");
   });
 
+  it("gives Windows remediation commands for missing core tools", async () => {
+    const missing = Object.assign(new Error("spawn ENOENT"), { code: "ENOENT" });
+    const runner: ReadinessProbeRunner = vi.fn(async (request) => {
+      if (request.command === "git" || request.command === "gh" || request.command === "codex") throw missing;
+      throw new Error("unexpected");
+    });
+    const report = await runPreflight({ repositoryPath: "/repo", provider: "codex", runner, platform: "win32" });
+    expect(report.canContinue).toBe(false);
+    expect(report.results.find((item) => item.id === "git-available")?.nextAction).toContain("winget install Git.Git");
+    expect(report.results.find((item) => item.id === "github-cli-available")?.nextAction).toContain("winget install GitHub.cli");
+    expect(report.results.find((item) => item.id === "provider-codex")?.nextAction).toContain("npm install -g @openai/codex");
+  });
+
   it("distinguishes blockers from dirty, divergent, and unverifiable non-blocking risks", async () => {
     const { runner } = successfulRunner({
       "git -C /repo status --porcelain": " M src/file.ts",

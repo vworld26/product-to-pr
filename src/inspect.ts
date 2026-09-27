@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 
 import { discoverRepositoryInstructions } from "./instructions.js";
+import { toPosixPath } from "./paths.js";
 import type { RepositoryOverview } from "./plan.js";
 import { discoverVerification } from "./verify.js";
 
@@ -76,7 +77,7 @@ async function listSearchableFiles(
       !entry.name.endsWith("-lock.json") &&
       entry.name !== "package-lock.json"
     ) {
-      files.push(relative(repositoryPath, path));
+      files.push(toPosixPath(relative(repositoryPath, path)));
     }
   }
 

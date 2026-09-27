@@ -1,7 +1,4 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { runCommand } from "./command.js";
 
 export type ImplementationProvider = "codex" | "claude" | "manual";
 export type AutomatedImplementationProvider = Exclude<
@@ -51,7 +48,7 @@ export type ProviderProbe = (
 async function probeProvider(
   command: AutomatedImplementationProvider,
 ): Promise<void> {
-  await execFileAsync(command, ["--version"], { encoding: "utf8" });
+  await runCommand(command, ["--version"]);
 }
 
 export async function assertImplementationProviderReady(

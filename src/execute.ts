@@ -1,13 +1,16 @@
-import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { promisify } from "node:util";
 
+import {
+  formatTimeout,
+  killTree,
+  runCommand,
+  spawnCommand,
+  type TimeoutOptions,
+} from "./command.js";
 import type {
   AutomatedImplementationProvider,
 } from "./provider.js";
-
-const execFileAsync = promisify(execFile);
 
 type ImplementationBinding = {
   branch: string;
@@ -43,11 +46,7 @@ function readBinding(packageContent: string): ImplementationBinding {
 }
 
 async function git(repositoryPath: string, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync(
-    "git",
-    ["-C", repositoryPath, ...args],
-    { encoding: "utf8" },
-  );
+  const { stdout } = await runCommand("git", ["-C", repositoryPath, ...args]);
   return stdout.trim();
 }
 
@@ -78,23 +77,29 @@ export function buildImplementationPrompt(
   ].join("\n");
 }
 
+const implementationTimeoutMilliseconds = 600_000;
+
 export async function runCodexImplementation(
   repositoryPath: string,
   prompt: string,
+  options: TimeoutOptions = {},
 ): Promise<string> {
   return runImplementationCommand(
     buildImplementationCommand("codex", repositoryPath),
     prompt,
+    options.timeoutMilliseconds ?? implementationTimeoutMilliseconds,
   );
 }
 
 export async function runClaudeImplementation(
   repositoryPath: string,
   prompt: string,
+  options: TimeoutOptions = {},
 ): Promise<string> {
   return runImplementationCommand(
     buildImplementationCommand("claude", repositoryPath),
     prompt,
+    options.timeoutMilliseconds ?? implementationTimeoutMilliseconds,
   );
 }
 
@@ -147,9 +152,10 @@ export function implementationRunnerFor(
 async function runImplementationCommand(
   implementationCommand: ImplementationCommand,
   prompt: string,
+  timeoutMilliseconds: number,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(
+    const child = spawnCommand(
       implementationCommand.command,
       implementationCommand.args,
       {
@@ -161,14 +167,19 @@ async function runImplementationCommand(
     );
     let output = "";
     let errorOutput = "";
+    // Once the tree is killed the child closes with a non-zero status; the
+    // close handler must report the timeout, not that status.
+    let timedOut = false;
+    const timeoutError = new Error(
+      `${implementationCommand.label} implementation timed out after ${formatTimeout(timeoutMilliseconds)}.`,
+    );
     const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-      reject(
-        new Error(
-          `${implementationCommand.label} implementation timed out after 10 minutes.`,
-        ),
+      timedOut = true;
+      void killTree(child).then(
+        () => reject(timeoutError),
+        (error) => reject(error),
       );
-    }, 600_000);
+    }, timeoutMilliseconds);
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
@@ -181,7 +192,9 @@ async function runImplementationCommand(
     child.on("error", reject);
     child.on("close", (code) => {
       clearTimeout(timeout);
-      if (code === 0) {
+      if (timedOut) {
+        return;
+      } else if (code === 0) {
         resolve(output.trim());
       } else {
         reject(

@@ -7,8 +7,13 @@ on:
       - main
 
 jobs:
-  verify:
-    runs-on: ubuntu-latest
+  platform:
+    name: verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -27,3 +32,13 @@ jobs:
 
       - name: Run TypeScript typecheck
         run: npm run typecheck
+
+  verify:
+    if: ${{ always() }}
+    needs: platform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm all platform checks passed
+        env:
+          PLATFORM_RESULT: ${{ needs.platform.result }}
+        run: test "$PLATFORM_RESULT" = "success"

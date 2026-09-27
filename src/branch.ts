@@ -1,7 +1,4 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { runCommand } from "./command.js";
 
 function slugify(value: string): string {
   return (
@@ -17,9 +14,7 @@ async function git(
   repositoryPath: string,
   args: string[],
 ): Promise<{ stdout: string; stderr: string }> {
-  return execFileAsync("git", ["-C", repositoryPath, ...args], {
-    encoding: "utf8",
-  });
+  return runCommand("git", ["-C", repositoryPath, ...args]);
 }
 
 function hasUnrelatedChanges(status: string): boolean {

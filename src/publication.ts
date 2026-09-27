@@ -1,20 +1,15 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
+import { runCommand } from "./command.js";
 import type { ProductPlan } from "./plan.js";
 import { formatReviewHandoff, type ReviewHandoff } from "./handoff.js";
 import { readLocalChangeEvidence, type LocalReview } from "./review.js";
-
-const execFileAsync = promisify(execFile);
 
 async function command(
   executable: string,
   args: string[],
   repositoryPath: string,
 ): Promise<string> {
-  const { stdout } = await execFileAsync(executable, args, {
+  const { stdout } = await runCommand(executable, args, {
     cwd: repositoryPath,
-    encoding: "utf8",
     maxBuffer: 2_000_000,
   });
   return stdout.trim();

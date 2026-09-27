@@ -1,9 +1,9 @@
-import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
+import { runCommand } from "./command.js";
 
 import type { ProductPlan } from "./plan.js";
 import type { ReviewHandoff } from "./handoff.js";
@@ -17,7 +17,6 @@ import {
 import type { LocalReview } from "./review.js";
 import { readLocalChangeEvidence } from "./review.js";
 
-const execFileAsync = promisify(execFile);
 const plan = {
   title: "Add confidence levels",
   summary: "Help users understand plan confidence.",
@@ -39,13 +38,13 @@ describe("publication", () => {
   it("proposes a conventional commit and excludes Product-to-PR artifacts", async () => {
     const repositoryPath = await mkdtemp(join(tmpdir(), "product-to-pr-publish-"));
     try {
-      await execFileAsync("git", ["-C", repositoryPath, "init"]);
-      await execFileAsync("git", ["-C", repositoryPath, "config", "user.name", "Test"]);
-      await execFileAsync("git", ["-C", repositoryPath, "config", "user.email", "test@example.test"]);
+      await runCommand("git", ["-C", repositoryPath, "init"]);
+      await runCommand("git", ["-C", repositoryPath, "config", "user.name", "Test"]);
+      await runCommand("git", ["-C", repositoryPath, "config", "user.email", "test@example.test"]);
       await writeFile(join(repositoryPath, "README.md"), "before\n");
-      await execFileAsync("git", ["-C", repositoryPath, "add", "README.md"]);
-      await execFileAsync("git", ["-C", repositoryPath, "commit", "-m", "Initial"]);
-      await execFileAsync("git", ["-C", repositoryPath, "switch", "-c", "product-to-pr/example"]);
+      await runCommand("git", ["-C", repositoryPath, "add", "README.md"]);
+      await runCommand("git", ["-C", repositoryPath, "commit", "-m", "Initial"]);
+      await runCommand("git", ["-C", repositoryPath, "switch", "-c", "product-to-pr/example"]);
       await writeFile(join(repositoryPath, "README.md"), "after\n");
       await mkdir(join(repositoryPath, ".product-to-pr"));
       await writeFile(join(repositoryPath, ".product-to-pr", "preserve.md"), "preserve\n");
@@ -60,7 +59,7 @@ describe("publication", () => {
 
       expect(message).toBe("feat: add confidence levels");
       expect(commit).toMatch(/^[a-f0-9]{40}$/);
-      const { stdout: status } = await execFileAsync(
+      const { stdout: status } = await runCommand(
         "git",
         ["-C", repositoryPath, "status", "--short"],
         { encoding: "utf8" },
@@ -74,8 +73,8 @@ describe("publication", () => {
   it("builds a traceable pull request without calling GitHub in tests", async () => {
     const repositoryPath = await mkdtemp(join(tmpdir(), "product-to-pr-pr-"));
     try {
-      await execFileAsync("git", ["-C", repositoryPath, "init"]);
-      await execFileAsync("git", ["-C", repositoryPath, "switch", "-c", "product-to-pr/example"]);
+      await runCommand("git", ["-C", repositoryPath, "init"]);
+      await runCommand("git", ["-C", repositoryPath, "switch", "-c", "product-to-pr/example"]);
       let args: string[] = [];
       const url = await openPullRequest(repositoryPath, plan, review, handoff, async (_path, received) => {
         args = received;
@@ -121,13 +120,13 @@ describe("publication", () => {
   it("refuses to commit files that changed after review", async () => {
     const repositoryPath = await mkdtemp(join(tmpdir(), "product-to-pr-stale-review-"));
     try {
-      await execFileAsync("git", ["-C", repositoryPath, "init"]);
-      await execFileAsync("git", ["-C", repositoryPath, "config", "user.name", "Test"]);
-      await execFileAsync("git", ["-C", repositoryPath, "config", "user.email", "test@example.test"]);
+      await runCommand("git", ["-C", repositoryPath, "init"]);
+      await runCommand("git", ["-C", repositoryPath, "config", "user.name", "Test"]);
+      await runCommand("git", ["-C", repositoryPath, "config", "user.email", "test@example.test"]);
       await writeFile(join(repositoryPath, "README.md"), "before\n");
-      await execFileAsync("git", ["-C", repositoryPath, "add", "README.md"]);
-      await execFileAsync("git", ["-C", repositoryPath, "commit", "-m", "Initial"]);
-      await execFileAsync("git", ["-C", repositoryPath, "switch", "-c", "product-to-pr/example"]);
+      await runCommand("git", ["-C", repositoryPath, "add", "README.md"]);
+      await runCommand("git", ["-C", repositoryPath, "commit", "-m", "Initial"]);
+      await runCommand("git", ["-C", repositoryPath, "switch", "-c", "product-to-pr/example"]);
       await writeFile(join(repositoryPath, "README.md"), "reviewed\n");
       const evidence = await readLocalChangeEvidence(repositoryPath);
       await writeFile(join(repositoryPath, "README.md"), "changed afterward\n");

@@ -1,9 +1,7 @@
-import { execFile } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
+import { runCommand } from "./command.js";
 
 export type DependencyInstall = {
   command: "npm ci" | "npm install";
@@ -42,9 +40,8 @@ export async function installDependencies(
   repositoryPath: string,
   install: DependencyInstall,
 ): Promise<void> {
-  await execFileAsync("npm", install.args, {
+  await runCommand("npm", install.args, {
     cwd: repositoryPath,
-    encoding: "utf8",
     timeout: 300_000,
   });
 }

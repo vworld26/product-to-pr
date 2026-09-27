@@ -12,6 +12,11 @@
   provider when selected.
 - `src/execute.ts` safely asks the selected automated provider to make the
   approved local changes.
+- `src/command.ts` starts every external tool (Git, GitHub CLI, npm, Codex,
+  Claude Code) the same way on macOS, Linux, and Windows, where npm-installed
+  tools are `.cmd` scripts that need a shell.
+- `src/paths.ts` keeps repository-relative paths in forward-slash form so
+  saved artifacts and prompts read the same on every operating system.
 - `src/verify.ts` previews and runs known repository checks after approval.
 - `src/review.ts` explains the diff, test evidence, and acceptance status.
 - `src/publication.ts` commits and publishes only after separate approvals.
